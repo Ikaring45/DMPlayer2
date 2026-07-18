@@ -1,18 +1,31 @@
 import type { LyricLine } from "../types";
 
-const LRC_LINE = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?]\s*(.*)/g;
+const LRC_TIME_TAG = /\[(\d{1,3}):([0-5]\d)(?:[.:](\d{1,3}))?]/g;
 
 export function parseLrc(input: string): LyricLine[] {
-  const result: LyricLine[] = [];
+  const result: Array<LyricLine & { order: number }> = [];
+  let order = 0;
+
   for (const sourceLine of input.split(/\r?\n/)) {
-    LRC_LINE.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = LRC_LINE.exec(sourceLine))) {
+    const timestamps = Array.from(sourceLine.matchAll(LRC_TIME_TAG));
+    if (!timestamps.length) continue;
+
+    const text = sourceLine.replace(LRC_TIME_TAG, "").trim();
+    if (!text) continue;
+
+    for (const match of timestamps) {
       const fraction = match[3] ? Number(`0.${match[3]}`) : 0;
-      result.push({ time: Number(match[1]) * 60 + Number(match[2]) + fraction, text: match[4].trim() });
+      result.push({
+        time: Number(match[1]) * 60 + Number(match[2]) + fraction,
+        text,
+        order: order++,
+      });
     }
   }
-  return result.filter((line) => line.text).sort((a, b) => a.time - b.time);
+
+  return result
+    .sort((a, b) => a.time - b.time || a.order - b.order)
+    .map(({ time, text }) => ({ time, text }));
 }
 
 export function formatTime(value = 0) {

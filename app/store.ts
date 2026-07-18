@@ -76,10 +76,12 @@ const createId = () => {
 };
 
 const nextFrom = (state: Pick<AppState, "queue" | "currentId" | "repeat">, direction: 1 | -1) => {
-  const index = Math.max(0, state.queue.indexOf(state.currentId ?? ""));
-  let nextIndex = index + direction;
-  if (nextIndex >= state.queue.length) nextIndex = state.repeat === "all" ? 0 : index;
-  if (nextIndex < 0) nextIndex = state.repeat === "all" ? state.queue.length - 1 : 0;
+  if (!state.queue.length) return undefined;
+  const index = state.queue.indexOf(state.currentId ?? "");
+  if (index < 0) return direction === 1 ? state.queue[0] : undefined;
+  const nextIndex = index + direction;
+  if (nextIndex >= state.queue.length) return state.repeat === "all" ? state.queue[0] : undefined;
+  if (nextIndex < 0) return state.repeat === "all" ? state.queue[state.queue.length - 1] : undefined;
   return state.queue[nextIndex];
 };
 
@@ -100,10 +102,39 @@ function announceTrackTransition(direction: "next" | "previous") {
   }
 }
 
+function embeddedMetadataPatch(
+  track: Track,
+  embedded: Awaited<ReturnType<typeof readEmbeddedMetadata>>,
+): Partial<Track> {
+  return {
+    title: embedded.title || track.title,
+    artist: embedded.artist || track.artist,
+    album: embedded.album || track.album,
+    duration: embedded.duration || track.duration,
+    artwork: embedded.artwork || track.artwork,
+    artworkData: embedded.artworkData || track.artworkData,
+    artworkType: embedded.artworkType || track.artworkType,
+    lyrics: embedded.lyrics || track.lyrics,
+    syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
+    codec: embedded.codec || track.codec,
+    container: embedded.container || track.container,
+    bitrate: embedded.bitrate || track.bitrate,
+    sampleRate: embedded.sampleRate || track.sampleRate,
+    channels: embedded.channels || track.channels,
+    bitsPerSample: embedded.bitsPerSample || track.bitsPerSample,
+    lossless: embedded.lossless ?? track.lossless,
+    lyricsParsed: true,
+    metadataParsed: true,
+    technicalParsed: true,
+    updatedAt: Date.now(),
+  };
+}
+
 export const usePlayerStore = create<AppState>((set, get) => ({
   tracks: [], playlists: [], queue: [], originalQueue: [], playing: false, shuffle: false,
   repeat: "off", volume: 1, theme: "system", eqEnabled: false, eqBands: [0, 0, 0, 0, 0], ready: false,
   load: async () => {
+    try {
     const [tracks, playlists, volume, theme, eqEnabled, eqBands, session] = await Promise.all([
       db.getTracks(),
       db.getPlaylists(),
@@ -133,38 +164,31 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       eqBands: eqBands.length === 5 ? eqBands : [0, 0, 0, 0, 0],
       ready: true,
     });
+    try {
+      localStorage.setItem("dmplayer2:theme", theme);
+    } catch {}
     for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed || !item.technicalParsed)) {
       try {
-        const embedded = await readEmbeddedMetadata(track.blob);
-        const updated: Track = {
-          ...track,
-          title: embedded.title || track.title,
-          artist: embedded.artist || track.artist,
-          album: embedded.album || track.album,
-          duration: embedded.duration || track.duration,
-          artwork: embedded.artwork || track.artwork,
-          artworkData: embedded.artworkData || track.artworkData,
-          artworkType: embedded.artworkType || track.artworkType,
-          lyrics: embedded.lyrics || track.lyrics,
-          syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
-          codec: embedded.codec || track.codec,
-          container: embedded.container || track.container,
-          bitrate: embedded.bitrate || track.bitrate,
-          sampleRate: embedded.sampleRate || track.sampleRate,
-          channels: embedded.channels || track.channels,
-          bitsPerSample: embedded.bitsPerSample || track.bitsPerSample,
-          lossless: embedded.lossless ?? track.lossless,
-          lyricsParsed: true,
-          metadataParsed: true,
-          technicalParsed: true,
-          updatedAt: Date.now(),
-        };
-        await db.saveTrack(updated);
-        set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
-      } catch {
-        const updated = { ...track, metadataParsed: true, lyricsParsed: true, technicalParsed: true, updatedAt: Date.now() };
-        await db.saveTrack(updated);
-        set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
+        const audio = await db.getTrackAudio(track.id);
+        if (!audio) continue;
+        const embedded = await readEmbeddedMetadata(audio);
+        const persisted = await db.patchTrack(track.id, embeddedMetadataPatch(track, embedded));
+        if (persisted) {
+          set((state) => ({
+            tracks: state.tracks.map((item) => item.id === persisted.id ? persisted : item),
+          }));
+        }
+      } catch (error) {
+        console.warn(`Metadata refresh deferred for ${track.fileName}`, error);
+      }
+    }
+    } catch (error) {
+      console.error("Library could not be loaded", error);
+      set({ ready: true });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dmplayer:notice", {
+          detail: "ライブラリを読み込めませんでした。ページを再読み込みしてください。",
+        }));
       }
     }
   },
@@ -172,8 +196,12 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     const supported = files.filter(isAudioFile);
     const existing = get().tracks;
     const added: Track[] = [];
+    const knownFiles = new Set(existing.map((track) => (
+      `${track.fileName}\u0000${track.sourceFileSize ?? track.fileSize}`
+    )));
     for (const file of supported) {
-      if (existing.some((track) => track.fileName === file.name && (track.sourceFileSize ?? track.fileSize) === file.size)) continue;
+      const fileKey = `${file.name}\u0000${file.size}`;
+      if (knownFiles.has(fileKey)) continue;
       const stem = file.name.replace(/\.[^.]+$/, "");
       const [artist, ...titleParts] = stem.split(" - ");
       const title = titleParts.length ? titleParts.join(" - ") : artist;
@@ -218,7 +246,11 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         blob: storedBlob, audioData, favorite: false, playCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
       };
       await db.saveTrack(track);
-      added.push(track);
+      const { blob, audioData: storedAudioData, ...metadataTrack } = track;
+      void blob;
+      void storedAudioData;
+      added.push(metadataTrack);
+      knownFiles.add(fileKey);
     }
     const tracks = [...added, ...existing];
     const ids = tracks.map((track) => track.id);
@@ -227,22 +259,51 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     return added.length;
   },
   updateTrack: async (id, patch) => {
-    const track = get().tracks.find((item) => item.id === id);
-    if (!track) return;
-    const next = { ...track, ...patch, updatedAt: Date.now() };
-    if (typeof patch.lyrics === "string") next.syncedLyrics = parseLrc(patch.lyrics);
-    await db.saveTrack(next);
-    set({ tracks: get().tracks.map((item) => item.id === id ? next : item) });
+    const updatedAt = Date.now();
+    const normalizedPatch: Partial<Track> = { ...patch, updatedAt };
+    if (typeof patch.lyrics === "string") normalizedPatch.syncedLyrics = parseLrc(patch.lyrics);
+    set((state) => ({
+      tracks: state.tracks.map((item) => (
+        item.id === id ? { ...item, ...normalizedPatch } : item
+      )),
+    }));
+    try {
+      const persisted = await db.patchTrack(id, normalizedPatch);
+      if (persisted) {
+        set((state) => ({
+          tracks: state.tracks.map((item) => item.id === id
+            ? { ...persisted, ...item, updatedAt: Math.max(item.updatedAt, persisted.updatedAt) }
+            : item),
+        }));
+      }
+    } catch (error) {
+      console.error(`Track update could not be saved: ${id}`, error);
+      window.dispatchEvent(new CustomEvent("dmplayer:notice", {
+        detail: "曲情報の変更を保存できませんでした。",
+      }));
+    }
   },
   deleteTrack: async (id) => {
     await db.removeTrack(id);
     const tracks = get().tracks.filter((track) => track.id !== id);
     const queue = get().queue.filter((trackId) => trackId !== id);
-    set({ tracks, queue, originalQueue: get().originalQueue.filter((trackId) => trackId !== id), currentId: get().currentId === id ? undefined : get().currentId, playing: get().currentId === id ? false : get().playing });
+    const playlists = get().playlists.map((playlist) => ({
+      ...playlist,
+      trackIds: playlist.trackIds.filter((trackId) => trackId !== id),
+    }));
+    set({ tracks, playlists, queue, originalQueue: get().originalQueue.filter((trackId) => trackId !== id), currentId: get().currentId === id ? undefined : get().currentId, playing: get().currentId === id ? false : get().playing });
     persistSession(get());
   },
   clear: async () => { await db.clearLibrary(); set({ tracks: [], playlists: [], queue: [], originalQueue: [], currentId: undefined, playing: false }); persistSession(get()); },
   playTrack: (id, source) => {
+    if (get().currentId === id) {
+      set({ playing: true });
+      persistSession(get());
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("dmplayer:play-request", { detail: { id } }));
+      }
+      return;
+    }
     const ids = source ?? get().tracks.map((track) => track.id);
     const queue = get().shuffle ? shuffleIds(ids, id) : ids;
     const previousId = get().currentId;
@@ -256,12 +317,22 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     const track = get().tracks.find((item) => item.id === id);
     if (track && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("dmplayer:play-request", {
-        detail: { id: track.id, blob: track.blob },
+        detail: { id: track.id },
       }));
     }
   },
   setPlaying: (playing) => set({ playing }),
-  next: () => { const id = nextFrom(get(), 1); if (id) { if (id !== get().currentId) announceTrackTransition("next"); set({ currentId: id, playing: true }); persistSession(get()); } },
+  next: () => {
+    const id = nextFrom(get(), 1);
+    if (!id) {
+      set({ playing: false });
+      persistSession(get());
+      return;
+    }
+    if (id !== get().currentId) announceTrackTransition("next");
+    set({ currentId: id, playing: true });
+    persistSession(get());
+  },
   previous: () => { const id = nextFrom(get(), -1); if (id) { if (id !== get().currentId) announceTrackTransition("previous"); set({ currentId: id, playing: true }); persistSession(get()); } },
   addNext: (id) => { const { queue, currentId } = get(); const clean = queue.filter((item) => item !== id); const index = Math.max(0, clean.indexOf(currentId ?? "")); clean.splice(index + 1, 0, id); set({ queue: clean }); persistSession(get()); },
   addToQueue: (id) => { if (!get().queue.includes(id)) { set({ queue: [...get().queue, id] }); persistSession(get()); } },
@@ -286,7 +357,13 @@ export const usePlayerStore = create<AppState>((set, get) => ({
   toggleShuffle: () => { const enabled = !get().shuffle; set({ shuffle: enabled, queue: enabled ? shuffleIds(get().originalQueue, get().currentId) : get().originalQueue }); persistSession(get()); },
   cycleRepeat: () => { set({ repeat: get().repeat === "off" ? "all" : get().repeat === "all" ? "one" : "off" }); persistSession(get()); },
   setVolume: (volume) => { set({ volume }); void db.saveSetting("volume", volume); },
-  setTheme: (theme) => { set({ theme }); void db.saveSetting("theme", theme); },
+  setTheme: (theme) => {
+    set({ theme });
+    try {
+      localStorage.setItem("dmplayer2:theme", theme);
+    } catch {}
+    void db.saveSetting("theme", theme);
+  },
   setEqEnabled: (eqEnabled) => { set({ eqEnabled }); void db.saveSetting("eqEnabled", eqEnabled); },
   setEqBand: (index, gain) => {
     if (index < 0 || index >= 5) return;
@@ -313,34 +390,17 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     const track = get().tracks.find((item) => item.id === id);
     if (!track) return false;
     try {
-      const embedded = await readEmbeddedMetadata(track.blob);
-      const updated: Track = {
-        ...track,
-        title: embedded.title || track.title,
-        artist: embedded.artist || track.artist,
-        album: embedded.album || track.album,
-        duration: embedded.duration || track.duration,
-        artwork: embedded.artwork || track.artwork,
-        artworkData: embedded.artworkData || track.artworkData,
-        artworkType: embedded.artworkType || track.artworkType,
-        lyrics: embedded.lyrics || track.lyrics,
-        syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
-        codec: embedded.codec || track.codec,
-        container: embedded.container || track.container,
-        bitrate: embedded.bitrate || track.bitrate,
-        sampleRate: embedded.sampleRate || track.sampleRate,
-        channels: embedded.channels || track.channels,
-        bitsPerSample: embedded.bitsPerSample || track.bitsPerSample,
-        lossless: embedded.lossless ?? track.lossless,
-        lyricsParsed: true,
-        metadataParsed: true,
-        technicalParsed: true,
-        updatedAt: Date.now(),
-      };
-      await db.saveTrack(updated);
-      set({ tracks: get().tracks.map((item) => item.id === id ? updated : item) });
+      const audio = await db.getTrackAudio(id);
+      if (!audio) return false;
+      const embedded = await readEmbeddedMetadata(audio);
+      const persisted = await db.patchTrack(id, embeddedMetadataPatch(track, embedded));
+      if (!persisted) return false;
+      set((state) => ({
+        tracks: state.tracks.map((item) => item.id === id ? persisted : item),
+      }));
       return true;
-    } catch {
+    } catch (error) {
+      console.warn(`Metadata refresh failed for ${track.fileName}`, error);
       return false;
     }
   },

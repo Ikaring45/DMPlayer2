@@ -25,8 +25,8 @@ export type Track = {
   fileType: string;
   fileSize: number;
   sourceFileSize?: number;
-  blob: Blob;
-  audioData: ArrayBuffer;
+  blob?: Blob;
+  audioData?: ArrayBuffer;
   lyrics?: string;
   syncedLyrics?: LyricLine[];
   lyricsParsed?: boolean;

@@ -21,13 +21,19 @@ test("server-renders the DMPlayer2 application shell", async () => {
   assert.match(html, /音楽を、この端末に。/);
   assert.match(html, /manifest\.webmanifest/);
   assert.match(html, /apple-mobile-web-app-status-bar-style/);
+  assert.match(html, /aria-label="メインナビゲーション"/);
+  const viewportTags = html.match(/<meta\b[^>]*name="viewport"[^>]*>/gi) ?? [];
+  assert.equal(viewportTags.length, 1);
+  assert.match(viewportTags[0], /user-scalable=no/i);
+  assert.match(html, /viewport-fit=cover/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
 test("ships local-first PWA assets and removes starter UI", async () => {
-  const [manifestText, serviceWorker, page, layout] = await Promise.all([
+  const [manifestText, serviceWorker, builtServiceWorker, page, layout] = await Promise.all([
     readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../dist/client/sw.js", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
@@ -35,8 +41,14 @@ test("ships local-first PWA assets and removes starter UI", async () => {
   assert.equal(manifest.short_name, "DMPlayer2");
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "./");
+  assert.ok(manifest.icons.some((icon) => icon.sizes === "192x192" && icon.type === "image/png"));
+  assert.ok(manifest.icons.some((icon) => icon.sizes === "512x512" && icon.type === "image/png"));
   assert.match(serviceWorker, /caches\.open/);
+  assert.match(serviceWorker, /key\.startsWith\("dmplayer2-"\)/);
+  assert.match(builtServiceWorker, /\.\/(?:assets|_next\/static)\/.+\.js/);
+  assert.doesNotMatch(builtServiceWorker, /__DMPLAYER_BUILD_ASSETS__ \*\/ \[\]/);
   assert.match(page, /<PlayerApp/);
-  assert.match(layout, /viewportFit:\s*"cover"/);
+  assert.match(layout, /viewport-fit=cover/);
+  await access(new URL("../public/apple-touch-icon.png", import.meta.url));
   await assert.rejects(access(new URL("../app/_sites-preview/SkeletonPreview.tsx", import.meta.url)));
 });

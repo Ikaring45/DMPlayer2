@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePlayerStore } from "../store";
 import type { Track } from "../types";
 
 type AudioFrame = { bands: number[]; level: number };
@@ -14,19 +15,74 @@ function blendColor(current: string, target: string, amount: number) {
 }
 
 export function NowPlayingBackdrop({ track }: { track: Track }) {
+  const playing = usePlayerStore((state) => state.playing);
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const levelsRef = useRef<AudioFrame>({ bands: [0, 0, 0, 0, 0], level: 0 });
   const targetColorsRef = useRef([...DEFAULT_COLORS]);
   const currentColorsRef = useRef([...DEFAULT_COLORS]);
+  const [artworkUrl, setArtworkUrl] = useState<string>();
   const artwork = useMemo(() => track.artwork ?? (track.artworkData
     ? new Blob([track.artworkData], { type: track.artworkType || "image/jpeg" })
     : undefined), [track.artwork, track.artworkData, track.artworkType]);
-  const artworkUrl = useMemo(() => artwork ? URL.createObjectURL(artwork) : undefined, [artwork]);
 
-  useEffect(() => () => {
-    if (artworkUrl) URL.revokeObjectURL(artworkUrl);
-  }, [artworkUrl]);
+  useEffect(() => {
+    let cancelled = false;
+    let sourceUrl: string | undefined;
+    let outputUrl: string | undefined;
+    let clearTimer = 0;
+    if (!artwork) {
+      clearTimer = window.setTimeout(() => setArtworkUrl(undefined), 0);
+      return () => window.clearTimeout(clearTimer);
+    }
+
+    sourceUrl = URL.createObjectURL(artwork);
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 320;
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        outputUrl = sourceUrl;
+        sourceUrl = undefined;
+        setArtworkUrl(outputUrl);
+        return;
+      }
+      const cropSize = Math.min(image.naturalWidth, image.naturalHeight);
+      const sourceX = (image.naturalWidth - cropSize) / 2;
+      const sourceY = (image.naturalHeight - cropSize) / 2;
+      context.drawImage(image, sourceX, sourceY, cropSize, cropSize, 0, 0, size, size);
+      canvas.toBlob((blob) => {
+        if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+        sourceUrl = undefined;
+        const backdropArtwork = blob ?? artwork;
+        outputUrl = URL.createObjectURL(backdropArtwork);
+        if (cancelled) {
+          URL.revokeObjectURL(outputUrl);
+          outputUrl = undefined;
+          return;
+        }
+        setArtworkUrl(outputUrl);
+      }, "image/jpeg", 0.82);
+    };
+    image.onerror = () => {
+      if (cancelled || !sourceUrl) return;
+      outputUrl = sourceUrl;
+      sourceUrl = undefined;
+      setArtworkUrl(outputUrl);
+    };
+    image.src = sourceUrl;
+
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+      if (outputUrl) URL.revokeObjectURL(outputUrl);
+    };
+  }, [artwork]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -91,10 +147,22 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
     if (!canvas || !root) return;
     const context = canvas.getContext("2d");
     if (!context) return;
+    if (!playing) {
+      root.style.setProperty("--audio-energy", "0");
+      root.style.setProperty("--bass-energy", "0");
+      root.style.setProperty("--treble-energy", "0");
+      return;
+    }
     let frame = 0;
+    let lastDraw = 0;
     let smoothed = [0, 0, 0, 0, 0];
     let energy = 0;
     const draw = (timestamp: number) => {
+      if (timestamp - lastDraw < 30) {
+        frame = requestAnimationFrame(draw);
+        return;
+      }
+      lastDraw = timestamp;
       const bounds = canvas.getBoundingClientRect();
       const ratio = Math.min(1.5, window.devicePixelRatio || 1);
       const width = Math.max(1, Math.round(bounds.width * ratio));
@@ -117,10 +185,10 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
       currentColorsRef.current = currentColorsRef.current.map((color, index) => blendColor(color, targetColorsRef.current[index] ?? color, 0.018));
       currentColorsRef.current.forEach((color, index) => {
         const strength = smoothed[index] ?? 0;
-        const phase = timestamp / (5200 - index * 430) + index * 1.37;
-        const radius = Math.min(bounds.width, bounds.height) * (0.19 + index * 0.025 + strength * 0.11);
-        const x = bounds.width * (0.5 + Math.sin(phase * (1 + index * .08)) * (0.22 + strength * .06));
-        const y = bounds.height * (0.48 + Math.cos(phase * .83 + index) * (0.23 + strength * .05));
+        const phase = timestamp / (4100 - index * 320) + index * 1.37;
+        const radius = Math.min(bounds.width, bounds.height) * (0.31 + index * 0.03 + strength * 0.14);
+        const x = bounds.width * (0.5 + Math.sin(phase * (1 + index * .08)) * (0.34 + strength * .08));
+        const y = bounds.height * (0.5 + Math.cos(phase * .79 + index) * (0.33 + strength * .07));
         const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
         gradient.addColorStop(0, `${color}${Math.round((0.22 + strength * .33) * 255).toString(16).padStart(2, "0")}`);
         gradient.addColorStop(1, `${color}00`);
@@ -135,7 +203,7 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [playing]);
 
   const artStyle = artworkUrl ? { backgroundImage: `url("${artworkUrl}")` } : undefined;
   return (
