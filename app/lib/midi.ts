@@ -7,6 +7,17 @@ export type MidiNote = {
   program: number;
 };
 
+export type MidiInfo = {
+  title?: string;
+  duration: number;
+  noteCount: number;
+  channelCount: number;
+  programs: Array<{ channel: number; program: number; name: string; notes: number }>;
+  pitchRange: [number, number];
+  peakPolyphony: number;
+  notes: Array<[number, number, number, number, number, number]>;
+};
+
 export type ParsedMidi = {
   title?: string;
   duration: number;
@@ -143,18 +154,18 @@ export function parseMidi(data: ArrayBuffer): ParsedMidi {
   return { title, duration, notes };
 }
 
-export async function renderMidiToWav(data: ArrayBuffer): Promise<{ audioData: ArrayBuffer; duration: number; title?: string }> {
+export async function renderMidiToWav(data: ArrayBuffer): Promise<{ audioData: ArrayBuffer; duration: number; title?: string; midi: MidiInfo }> {
   const midi = parseMidi(data);
   if (!midi.notes.length) throw new Error("再生できるノートがMIDIにありません");
   if (midi.duration > 20 * 60) throw new Error("20分を超えるMIDIは変換できません");
   if (midi.notes.length > 8_000) throw new Error("ノート数が多すぎるMIDIは変換できません");
 
-  const sampleRate = 32_000;
-  const renderDuration = midi.duration + 0.35;
+  const sampleRate = 44_100;
+  const renderDuration = midi.duration + 0.8;
   const OfflineContext = window.OfflineAudioContext
     || (window as Window & { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
   if (!OfflineContext) throw new Error("この端末はMIDI音源化に対応していません");
-  const context = new OfflineContext(1, Math.ceil(renderDuration * sampleRate), sampleRate);
+  const context = new OfflineContext(2, Math.ceil(renderDuration * sampleRate), sampleRate);
   const compressor = context.createDynamicsCompressor();
   compressor.threshold.value = -14;
   compressor.knee.value = 18;
@@ -179,13 +190,20 @@ export async function renderMidiToWav(data: ArrayBuffer): Promise<{ audioData: A
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, level * 0.58), Math.min(note.start + 0.11, noteEnd));
     gain.gain.setValueAtTime(Math.max(0.0001, level * 0.58), noteEnd);
     gain.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
-    oscillator.connect(gain).connect(compressor);
+    const pan = context.createStereoPanner();
+    pan.pan.value = percussion ? ((note.note * 17) % 11 - 5) / 10 : ((note.channel * 37) % 13 - 6) / 9;
+    oscillator.connect(gain).connect(pan).connect(compressor);
     oscillator.start(note.start);
     oscillator.stop(releaseEnd);
   }
 
   const rendered = await context.startRendering();
-  return { audioData: encodeMonoWav(rendered.getChannelData(0), rendered.sampleRate), duration: midi.duration, title: midi.title };
+  return {
+    audioData: encodeStereoWav(rendered.getChannelData(0), rendered.getChannelData(1), rendered.sampleRate),
+    duration: midi.duration,
+    title: midi.title,
+    midi: summarizeMidi(midi),
+  };
 }
 
 function waveformForProgram(program: number): OscillatorType {
@@ -197,25 +215,74 @@ function waveformForProgram(program: number): OscillatorType {
   return program < 104 ? "sine" : "sawtooth";
 }
 
-function encodeMonoWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
+function summarizeMidi(midi: ParsedMidi): MidiInfo {
+  const grouped = new Map<string, number>();
+  for (const note of midi.notes) {
+    const key = `${note.channel}:${note.program}`;
+    grouped.set(key, (grouped.get(key) ?? 0) + 1);
+  }
+  const programs = [...grouped].map(([key, notes]) => {
+    const [channel, program] = key.split(":").map(Number);
+    return { channel, program, name: channel === 9 ? "Drum Kit" : gmProgramName(program), notes };
+  }).sort((a, b) => b.notes - a.notes);
+  const pitchRange: [number, number] = midi.notes.length
+    ? [Math.min(...midi.notes.map((note) => note.note)), Math.max(...midi.notes.map((note) => note.note))]
+    : [0, 127];
+  return {
+    title: midi.title,
+    duration: midi.duration,
+    noteCount: midi.notes.length,
+    channelCount: new Set(midi.notes.map((note) => note.channel)).size,
+    programs,
+    pitchRange,
+    peakPolyphony: calculatePeakPolyphony(midi.notes),
+    notes: midi.notes.map((note) => [
+      Math.round(note.start * 1000) / 1000,
+      Math.round(note.end * 1000) / 1000,
+      note.note,
+      note.velocity,
+      note.channel,
+      note.program,
+    ]),
+  };
+}
+
+function calculatePeakPolyphony(notes: MidiNote[]) {
+  const edges = notes.flatMap((note) => [[note.start, 1], [note.end, -1]] as Array<[number, number]>)
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let active = 0;
+  let peak = 0;
+  for (const [, delta] of edges) { active += delta; peak = Math.max(peak, active); }
+  return peak;
+}
+
+export function gmProgramName(program: number) {
+  const families = ["Piano", "Chromatic", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass", "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth FX", "Ethnic", "Percussive", "Sound FX"];
+  return `${families[Math.floor(Math.max(0, Math.min(127, program)) / 8)]} ${program % 8 + 1}`;
+}
+
+function encodeStereoWav(left: Float32Array, right: Float32Array, sampleRate: number): ArrayBuffer {
+  const frames = Math.min(left.length, right.length);
+  const buffer = new ArrayBuffer(44 + frames * 4);
   const view = new DataView(buffer);
   writeAscii(view, 0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
+  view.setUint32(4, 36 + frames * 4, true);
   writeAscii(view, 8, "WAVE");
   writeAscii(view, 12, "fmt ");
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
+  view.setUint16(22, 2, true);
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
+  view.setUint32(28, sampleRate * 4, true);
+  view.setUint16(32, 4, true);
   view.setUint16(34, 16, true);
   writeAscii(view, 36, "data");
-  view.setUint32(40, samples.length * 2, true);
-  for (let index = 0; index < samples.length; index += 1) {
-    const sample = Math.max(-1, Math.min(1, samples[index] * 0.9));
-    view.setInt16(44 + index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  view.setUint32(40, frames * 4, true);
+  for (let index = 0; index < frames; index += 1) {
+    const leftSample = Math.max(-1, Math.min(1, left[index] * 0.9));
+    const rightSample = Math.max(-1, Math.min(1, right[index] * 0.9));
+    view.setInt16(44 + index * 4, leftSample < 0 ? leftSample * 0x8000 : leftSample * 0x7fff, true);
+    view.setInt16(46 + index * 4, rightSample < 0 ? rightSample * 0x8000 : rightSample * 0x7fff, true);
   }
   return buffer;
 }

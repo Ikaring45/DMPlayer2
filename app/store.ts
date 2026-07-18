@@ -5,7 +5,7 @@ import * as db from "./lib/db";
 import { getAudioMimeType, isAudioFile } from "./lib/audio-formats";
 import { parseLrc } from "./lib/lyrics";
 import { readEmbeddedMetadata } from "./lib/metadata";
-import { isMidiFile, renderMidiToWav } from "./lib/midi";
+import { isMidiFile, renderMidiToWav, type MidiInfo } from "./lib/midi";
 import type { Playlist, RepeatMode, ThemeMode, Track } from "./types";
 
 type AppState = {
@@ -160,14 +160,14 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       const stem = file.name.replace(/\.[^.]+$/, "");
       const [artist, ...titleParts] = stem.split(" - ");
       const title = titleParts.length ? titleParts.join(" - ") : artist;
-      let embedded: Partial<Awaited<ReturnType<typeof readEmbeddedMetadata>>> = {};
+      let embedded: Partial<Awaited<ReturnType<typeof readEmbeddedMetadata>>> & { midi?: MidiInfo } = {};
       let audioData = await file.arrayBuffer();
       let fileType = getAudioMimeType(file.name, file.type);
       if (isMidiFile(file.name, file.type)) {
         const rendered = await renderMidiToWav(audioData);
         audioData = rendered.audioData;
         fileType = "audio/wav";
-        embedded = { title: rendered.title, duration: rendered.duration };
+        embedded = { title: rendered.title, duration: rendered.duration, midi: rendered.midi };
       } else {
         try {
           embedded = await readEmbeddedMetadata(file);

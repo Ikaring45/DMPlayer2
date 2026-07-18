@@ -1,3 +1,5 @@
+import type { MidiInfo } from "./lib/midi";
+
 export type LyricLine = { time: number; text: string };
 
 export type Track = {
@@ -19,6 +21,7 @@ export type Track = {
   audioData: ArrayBuffer;
   lyrics?: string;
   syncedLyrics?: LyricLine[];
+  midi?: MidiInfo;
   favorite: boolean;
   playCount: number;
   lastPlayedAt?: number;

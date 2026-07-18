@@ -89,6 +89,11 @@ export function TabletPlayer({
         <span>{store.eqEnabled ? "EQ ON" : "EQ OFF"}</span>
         <button className={store.repeat !== "off" ? "active" : ""} onClick={store.cycleRepeat}>リピート {store.repeat === "one" ? "1" : ""}</button>
       </div>
+      {track.midi && <div className="ipad-midi-card">
+        <header><span>MIDI ENGINE</span><b>44.1 kHz · STEREO</b></header>
+        <div><strong>{track.midi.noteCount.toLocaleString()}</strong><small>NOTES</small><strong>{track.midi.channelCount}</strong><small>CHANNELS</small><strong>{track.midi.peakPolyphony}</strong><small>MAX POLY</small></div>
+        <p>{track.midi.programs.slice(0, 3).map((program) => `CH${program.channel + 1} ${program.name}`).join(" · ")}</p>
+      </div>}
       <div className="ipad-up-next">
         <span>次に再生</span>
         {store.queue.slice(Math.max(0, store.queue.indexOf(track.id) + 1), Math.max(0, store.queue.indexOf(track.id) + 4)).map((id) => {
