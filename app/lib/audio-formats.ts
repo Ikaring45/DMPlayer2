@@ -14,6 +14,8 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   aifc: "audio/aiff",
   caf: "audio/x-caf",
   alac: "audio/alac",
+  mid: "audio/midi",
+  midi: "audio/midi",
 };
 
 export const AUDIO_EXTENSIONS = Object.freeze(Object.keys(MIME_BY_EXTENSION));

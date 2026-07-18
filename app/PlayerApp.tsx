@@ -14,7 +14,7 @@ type Tab = "library" | "playlists" | "search" | "settings";
 type LibraryView = "home" | "songs" | "albums" | "artists" | "recent" | "history" | "favorites";
 
 function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
-  return <div className="empty-state"><div className="empty-note">♪</div><h2>音楽を、この端末に。</h2><p>ファイルは外部へ送信されません。iPhoneやiPadの「ファイル」から音源を追加できます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・AAC・FLAC・WAV・AIFF・OGG・OPUS</span></div>;
+  return <div className="empty-state"><div className="empty-note">♪</div><h2>音楽を、この端末に。</h2><p>ファイルは外部へ送信されません。iPhoneやiPadの「ファイル」から音源を追加できます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・FLAC・WAV・MIDI・AIFF・OGG・OPUS</span></div>;
 }
 
 function TrackRow({ track, onMenu, source }: { track: Track; onMenu: (track: Track) => void; source?: string[] }) {
@@ -91,6 +91,8 @@ export default function PlayerApp() {
       setNotice(
         error instanceof DOMException && error.name === "QuotaExceededError"
           ? "端末の保存容量が不足しています。"
+          : error instanceof Error && /MIDI/i.test(error.message)
+            ? error.message
           : "音楽ファイルを保存できませんでした。ページを再読み込みしてください。",
       );
     } finally {

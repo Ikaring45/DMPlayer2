@@ -5,6 +5,7 @@ import * as db from "./lib/db";
 import { getAudioMimeType, isAudioFile } from "./lib/audio-formats";
 import { parseLrc } from "./lib/lyrics";
 import { readEmbeddedMetadata } from "./lib/metadata";
+import { isMidiFile, renderMidiToWav } from "./lib/midi";
 import type { Playlist, RepeatMode, ThemeMode, Track } from "./types";
 
 type AppState = {
@@ -155,18 +156,25 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     const existing = get().tracks;
     const added: Track[] = [];
     for (const file of supported) {
-      if (existing.some((track) => track.fileName === file.name && track.fileSize === file.size)) continue;
+      if (existing.some((track) => track.fileName === file.name && (track.sourceFileSize ?? track.fileSize) === file.size)) continue;
       const stem = file.name.replace(/\.[^.]+$/, "");
       const [artist, ...titleParts] = stem.split(" - ");
       const title = titleParts.length ? titleParts.join(" - ") : artist;
       let embedded: Partial<Awaited<ReturnType<typeof readEmbeddedMetadata>>> = {};
-      try {
-        embedded = await readEmbeddedMetadata(file);
-      } catch {
-        // A playable file can still be added when it has malformed or unsupported tags.
+      let audioData = await file.arrayBuffer();
+      let fileType = getAudioMimeType(file.name, file.type);
+      if (isMidiFile(file.name, file.type)) {
+        const rendered = await renderMidiToWav(audioData);
+        audioData = rendered.audioData;
+        fileType = "audio/wav";
+        embedded = { title: rendered.title, duration: rendered.duration };
+      } else {
+        try {
+          embedded = await readEmbeddedMetadata(file);
+        } catch {
+          // A playable file can still be added when it has malformed or unsupported tags.
+        }
       }
-      const audioData = await file.arrayBuffer();
-      const fileType = getAudioMimeType(file.name, file.type);
       const storedBlob = new Blob([audioData], { type: fileType });
       const track: Track = {
         id: createId(),
@@ -178,7 +186,7 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         artworkData: embedded.artworkData,
         artworkType: embedded.artworkType,
         metadataParsed: true,
-        fileName: file.name, fileType, fileSize: file.size,
+        fileName: file.name, fileType, fileSize: audioData.byteLength, sourceFileSize: file.size,
         blob: storedBlob, audioData, favorite: false, playCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
       };
       await db.saveTrack(track);
