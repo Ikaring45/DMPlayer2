@@ -13,6 +13,14 @@ export type Track = {
   artworkData?: ArrayBuffer;
   artworkType?: string;
   metadataParsed?: boolean;
+  technicalParsed?: boolean;
+  codec?: string;
+  container?: string;
+  bitrate?: number;
+  sampleRate?: number;
+  channels?: number;
+  bitsPerSample?: number;
+  lossless?: boolean;
   fileName: string;
   fileType: string;
   fileSize: number;

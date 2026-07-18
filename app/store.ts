@@ -133,7 +133,7 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       eqBands: eqBands.length === 5 ? eqBands : [0, 0, 0, 0, 0],
       ready: true,
     });
-    for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed)) {
+    for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed || !item.technicalParsed)) {
       try {
         const embedded = await readEmbeddedMetadata(track.blob);
         const updated: Track = {
@@ -147,14 +147,22 @@ export const usePlayerStore = create<AppState>((set, get) => ({
           artworkType: embedded.artworkType || track.artworkType,
           lyrics: embedded.lyrics || track.lyrics,
           syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
+          codec: embedded.codec || track.codec,
+          container: embedded.container || track.container,
+          bitrate: embedded.bitrate || track.bitrate,
+          sampleRate: embedded.sampleRate || track.sampleRate,
+          channels: embedded.channels || track.channels,
+          bitsPerSample: embedded.bitsPerSample || track.bitsPerSample,
+          lossless: embedded.lossless ?? track.lossless,
           lyricsParsed: true,
           metadataParsed: true,
+          technicalParsed: true,
           updatedAt: Date.now(),
         };
         await db.saveTrack(updated);
         set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
       } catch {
-        const updated = { ...track, metadataParsed: true, lyricsParsed: true, updatedAt: Date.now() };
+        const updated = { ...track, metadataParsed: true, lyricsParsed: true, technicalParsed: true, updatedAt: Date.now() };
         await db.saveTrack(updated);
         set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
       }
@@ -196,8 +204,16 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         artworkType: embedded.artworkType,
         lyrics: embedded.lyrics,
         syncedLyrics: embedded.syncedLyrics,
+        codec: embedded.codec,
+        container: embedded.container,
+        bitrate: embedded.bitrate,
+        sampleRate: embedded.sampleRate,
+        channels: embedded.channels,
+        bitsPerSample: embedded.bitsPerSample,
+        lossless: embedded.lossless,
         lyricsParsed: embedded.lyricsParsed ?? true,
         metadataParsed: true,
+        technicalParsed: true,
         fileName: file.name, fileType, fileSize: audioData.byteLength, sourceFileSize: file.size,
         blob: storedBlob, audioData, favorite: false, playCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
       };
@@ -309,8 +325,16 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         artworkType: embedded.artworkType || track.artworkType,
         lyrics: embedded.lyrics || track.lyrics,
         syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
+        codec: embedded.codec || track.codec,
+        container: embedded.container || track.container,
+        bitrate: embedded.bitrate || track.bitrate,
+        sampleRate: embedded.sampleRate || track.sampleRate,
+        channels: embedded.channels || track.channels,
+        bitsPerSample: embedded.bitsPerSample || track.bitsPerSample,
+        lossless: embedded.lossless ?? track.lossless,
         lyricsParsed: true,
         metadataParsed: true,
+        technicalParsed: true,
         updatedAt: Date.now(),
       };
       await db.saveTrack(updated);

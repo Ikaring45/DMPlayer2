@@ -12,6 +12,13 @@ export type EmbeddedMetadata = {
   lyrics?: string;
   syncedLyrics?: LyricLine[];
   lyricsParsed: boolean;
+  codec?: string;
+  container?: string;
+  bitrate?: number;
+  sampleRate?: number;
+  channels?: number;
+  bitsPerSample?: number;
+  lossless?: boolean;
 };
 
 export async function readEmbeddedMetadata(blob: Blob): Promise<EmbeddedMetadata> {
@@ -44,5 +51,12 @@ export async function readEmbeddedMetadata(blob: Blob): Promise<EmbeddedMetadata
     lyrics: plainLyrics,
     syncedLyrics: synchronized.length ? synchronized : undefined,
     lyricsParsed: true,
+    codec: metadata.format.codec,
+    container: metadata.format.container,
+    bitrate: metadata.format.bitrate,
+    sampleRate: metadata.format.sampleRate,
+    channels: metadata.format.numberOfChannels,
+    bitsPerSample: metadata.format.bitsPerSample,
+    lossless: metadata.format.lossless,
   };
 }

@@ -82,3 +82,21 @@ export function PlayerControlIcon({ name }: { name: "shuffle" | "previous" | "pl
   if (name === "repeat") return <svg className="player-control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 6H7a4 4 0 0 0-4 4v1m14.5-8L21 6l-3.5 3M6.5 18H17a4 4 0 0 0 4-4v-1M6.5 21 3 18l3.5-3" /></svg>;
   return <svg className="player-control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3.5v-11L7 10H4Z" /><path d="M14.2 10.1a3.2 3.2 0 0 1 0 3.8" /><path d="M16.8 7a7 7 0 0 1 0 10" className={name === "volume-low" ? "volume-outer" : ""} /></svg>;
 }
+
+export type UiIconName = "play" | "next" | "queue" | "heart" | "edit" | "refresh" | "playlist" | "info" | "trash" | "shuffle" | "back" | "more";
+
+export function UiIcon({ name }: { name: UiIconName }) {
+  const common = { className: "ui-icon", viewBox: "0 0 24 24", "aria-hidden": true } as const;
+  if (name === "play") return <svg {...common}><path d="M8 5.5v13l11-6.5L8 5.5Z" /></svg>;
+  if (name === "next") return <svg {...common}><path d="M6 5.5v13l9.5-6.5L6 5.5ZM18 6v12" /></svg>;
+  if (name === "queue") return <svg {...common}><path d="M5 7h10M5 12h10M5 17h7M18 14v6m-3-3h6" /></svg>;
+  if (name === "heart") return <svg {...common}><path d="M12 20S4.5 15.7 4.5 9.7A4.2 4.2 0 0 1 12 7.1a4.2 4.2 0 0 1 7.5 2.6C19.5 15.7 12 20 12 20Z" /></svg>;
+  if (name === "edit") return <svg {...common}><path d="m5 16-.8 4 4-.8L19 8.4 15.6 5 5 16ZM13.8 6.8l3.4 3.4" /></svg>;
+  if (name === "refresh") return <svg {...common}><path d="M19 8a7.5 7.5 0 1 0 .2 7.6M19 4v4h-4" /></svg>;
+  if (name === "playlist") return <svg {...common}><path d="M4 6h11M4 11h11M4 16h7M18 13v7m-3.5-3.5h7" /></svg>;
+  if (name === "info") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 10.5V17M12 7.3h.01" /></svg>;
+  if (name === "trash") return <svg {...common}><path d="M5 7h14M9 7V4.5h6V7m-8 0 1 13h8l1-13M10 10v7m4-7v7" /></svg>;
+  if (name === "shuffle") return <svg {...common}><path d="M4 7h2c5.5 0 6 10 12 10h2m-3-3 3 3-3 3M4 17h2c2 0 3.4-1.4 4.5-3m3-4c1.1-1.7 2.5-3 4.5-3h2m-3-3 3 3-3 3" /></svg>;
+  if (name === "back") return <svg {...common}><path d="m14.5 5-7 7 7 7" /></svg>;
+  return <svg {...common}><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>;
+}
