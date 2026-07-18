@@ -38,14 +38,68 @@ function NowPlaying({ onClose, audioRef, closing = false }: { onClose: () => voi
   const store = usePlayerStore(); const track = store.tracks.find((item) => item.id === store.currentId);
   const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [lyricsOpen, setLyricsOpen] = useState(false); const [queueOpen, setQueueOpen] = useState(false); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? ""); const lyricsRef = useRef<HTMLDivElement>(null);
   const seekingRef = useRef(false);
+  const playerRef = useRef<HTMLElement>(null);
+  const dismissStartYRef = useRef(0);
+  const dismissDistanceRef = useRef(0);
+  const dismissStartedAtRef = useRef(0);
+  const dismissResetTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => { const timer = window.setTimeout(() => { setDraft(track?.lyrics ?? ""); setEditing(false); }, 0); return () => window.clearTimeout(timer); }, [track?.id, track?.lyrics]);
   useEffect(() => { const audio = audioRef.current; if (!audio) return; const update = () => { if (!seekingRef.current) setTime(audio.currentTime); setDuration(audio.duration || track?.duration || 0); }; update(); audio.addEventListener("timeupdate", update); audio.addEventListener("durationchange", update); return () => { audio.removeEventListener("timeupdate", update); audio.removeEventListener("durationchange", update); }; }, [audioRef, track]);
+  useEffect(() => () => {
+    if (dismissResetTimerRef.current !== undefined) window.clearTimeout(dismissResetTimerRef.current);
+  }, []);
   const activeLine = track?.syncedLyrics?.reduce((index, line, i) => line.time <= time ? i : index, -1) ?? -1;
   const previewSeek = (value: number) => { seekingRef.current = true; setTime(value); };
   const commitSeek = (value: number) => {
     if (audioRef.current) audioRef.current.currentTime = value;
     setTime(value);
     seekingRef.current = false;
+  };
+  const beginDismissDrag = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+    const player = playerRef.current;
+    if (!player || closing) return;
+    if (dismissResetTimerRef.current !== undefined) window.clearTimeout(dismissResetTimerRef.current);
+    dismissStartYRef.current = event.clientY;
+    dismissDistanceRef.current = 0;
+    dismissStartedAtRef.current = performance.now();
+    player.classList.remove("drag-reset");
+    player.classList.add("dragging");
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveDismissDrag = (event: React.PointerEvent<HTMLElement>) => {
+    const player = playerRef.current;
+    if (!player?.classList.contains("dragging")) return;
+    const distance = Math.max(0, event.clientY - dismissStartYRef.current);
+    dismissDistanceRef.current = distance;
+    const resistedDistance = distance <= 180 ? distance : 180 + (distance - 180) * .35;
+    player.style.setProperty("--dismiss-offset", `${resistedDistance}px`);
+    player.style.setProperty("--dismiss-scale", String(1 - Math.min(.018, resistedDistance / 12000)));
+    player.style.setProperty("--dismiss-opacity", String(1 - Math.min(.25, resistedDistance / 720)));
+  };
+  const endDismissDrag = (event: React.PointerEvent<HTMLElement>, cancelled = false) => {
+    const player = playerRef.current;
+    if (!player?.classList.contains("dragging")) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    const elapsed = Math.max(1, performance.now() - dismissStartedAtRef.current);
+    const velocity = dismissDistanceRef.current / elapsed;
+    const shouldDismiss = !cancelled && (dismissDistanceRef.current >= 92 || velocity >= .65);
+    if (shouldDismiss) {
+      player.classList.remove("dragging");
+      onClose();
+      return;
+    }
+    player.classList.remove("dragging");
+    player.classList.add("drag-reset");
+    player.style.setProperty("--dismiss-offset", "0px");
+    player.style.setProperty("--dismiss-scale", "1");
+    player.style.setProperty("--dismiss-opacity", "1");
+    dismissResetTimerRef.current = window.setTimeout(() => {
+      player.classList.remove("drag-reset");
+      player.style.removeProperty("--dismiss-offset");
+      player.style.removeProperty("--dismiss-scale");
+      player.style.removeProperty("--dismiss-opacity");
+    }, 380);
   };
   useEffect(() => { if (activeLine >= 0) lyricsRef.current?.querySelector(`[data-line="${activeLine}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }, [activeLine]);
   if (!track) return null;
@@ -54,7 +108,7 @@ function NowPlaying({ onClose, audioRef, closing = false }: { onClose: () => voi
     .slice(currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0, currentQueueIndex >= 0 ? currentQueueIndex + 6 : 5)
     .map((id) => store.tracks.find((item) => item.id === id))
     .filter((item): item is Track => Boolean(item));
-  return <section className={`now-playing ${closing ? "closing" : ""}`} aria-label="再生中"><NowPlayingBackdrop track={track} /><header><button onClick={onClose} aria-label="閉じる">⌄</button><span>再生中</span><button onClick={() => store.updateTrack(track.id, { favorite: !track.favorite })} aria-label="お気に入り">{track.favorite ? "♥" : "♡"}</button></header><div className="now-body">
+  return <section ref={playerRef} className={`now-playing ${closing ? "closing" : ""}`} aria-label="再生中"><NowPlayingBackdrop track={track} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button onClick={onClose} aria-label="閉じる">⌄</button><span className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div className="now-body">
     {!lyricsOpen && !queueOpen && (track.midi ? <MidiStudio track={track} audioRef={audioRef} /> : <JukeboxArtwork track={track} playing={store.playing} />)}
     {lyricsOpen && <div className="lyrics-panel" ref={lyricsRef}>{editing ? <div className="lyrics-editor"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="歌詞、またはLRC形式の同期歌詞を入力" /><div><button onClick={() => setEditing(false)}>キャンセル</button><button className="primary-button compact" onClick={() => { void store.updateTrack(track.id, { lyrics: draft }); setEditing(false); }}>保存</button></div></div> : track.syncedLyrics?.length ? track.syncedLyrics.map((line, index) => <button data-line={index} key={`${line.time}-${index}`} className={index === activeLine ? "current" : ""} onClick={() => { if (audioRef.current) audioRef.current.currentTime = line.time; }}>{line.text}</button>) : track.lyrics ? <p className="plain-lyrics">{track.lyrics}</p> : <div className="no-lyrics"><span>歌詞はまだありません</span><button className="primary-button compact" onClick={() => setEditing(true)}>歌詞を追加</button></div>}</div>}
     {queueOpen && <section className="queue-panel">
