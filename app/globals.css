@@ -4,17 +4,22 @@
   --bg: #f7f7fb; --surface: rgba(255,255,255,.82); --surface-solid: #fff; --text: #17171c;
   --muted: #74747e; --line: rgba(25,25,35,.09); --accent: #ef3f74; --accent-soft: #ffe5ee;
   --shadow: 0 18px 55px rgba(30,27,44,.12); --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px); color-scheme: light;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", "Segoe UI", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", sans-serif;
+  --font-numeric: "SF Mono", "Roboto Mono", ui-monospace, "Cascadia Code", monospace;
+  color-scheme: light;
 }
 :root[data-theme="dark"] { --bg:#101014; --surface:rgba(29,29,35,.84); --surface-solid:#1c1c22; --text:#f6f6f8; --muted:#aaaab4; --line:rgba(255,255,255,.09); --accent:#ff5d8d; --accent-soft:#3e1d2a; --shadow:0 20px 60px rgba(0,0,0,.38); color-scheme:dark; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#101014; --surface:rgba(29,29,35,.84); --surface-solid:#1c1c22; --text:#f6f6f8; --muted:#aaaab4; --line:rgba(255,255,255,.09); --accent:#ff5d8d; --accent-soft:#3e1d2a; --shadow:0 20px 60px rgba(0,0,0,.38); color-scheme:dark; } }
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html, body { position:fixed; inset:0; width:100%; height:100%; margin:0; overflow:hidden; overscroll-behavior:none; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif; }
+html, body { position:fixed; inset:0; width:100%; height:100%; margin:0; overflow:hidden; overscroll-behavior:none; background:var(--bg); color:var(--text); font-family:var(--font-ui); font-size:16px; font-weight:450; line-height:1.5; font-kerning:normal; font-optical-sizing:auto; font-synthesis:none; text-rendering:optimizeLegibility; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 input, textarea { -webkit-user-select:text; user-select:text; }
 button, input, textarea { color:inherit; font:inherit; }
-button { border:0; background:none; cursor:pointer; touch-action:manipulation; }
+button { border:0; background:none; cursor:pointer; touch-action:manipulation; letter-spacing:.005em; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent); outline-offset:2px; }
+h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-wrap:balance}p{line-height:1.68;line-break:strict;overflow-wrap:anywhere}strong{font-weight:680}small{line-height:1.4}.content h1{font-family:var(--font-display);font-weight:800;letter-spacing:-.042em}.content h2,.now-info h1,.hero-copy strong,.ipad-track-info strong{font-family:var(--font-display);font-weight:740}.track-copy strong,.mini-main strong,.queue-track strong,.ipad-up-next strong{font-weight:650;letter-spacing:-.012em}.track-copy small,.mini-main small,.queue-track small,.ipad-track-info small,.ipad-up-next small{letter-spacing:.01em}.primary-button,.sidebar>button,.tab-bar button,.segmented button{font-weight:650}.group-label,.library-heading>div>span,.hero-copy>span,.ipad-player>header>span{font-weight:760;letter-spacing:.14em}.seek>div,.ipad-seek>div,.eq-bands output,.eq-scale,.library-heading>p{font-family:var(--font-numeric);font-variant-numeric:tabular-nums slashed-zero;letter-spacing:0}.lyrics-panel>button,.plain-lyrics{font-family:var(--font-ui);font-feature-settings:"palt" 1,"kern" 1;line-break:strict}.lyrics-panel>button{font-weight:620;letter-spacing:.012em}.lyrics-panel>button.current{font-weight:760}
 .app-shell { position:relative; width:100%; height:100dvh; overflow:hidden; touch-action:pan-y; background:radial-gradient(circle at 95% 4%,rgba(239,63,116,.08),transparent 28%),var(--bg); }
 .content { height:100dvh; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:none; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding:calc(var(--safe-top) + 12px) 16px calc(154px + var(--safe-bottom)); }
 .content::-webkit-scrollbar,.now-playing::-webkit-scrollbar,.lyrics-panel::-webkit-scrollbar,.action-sheet::-webkit-scrollbar { display:none; }
