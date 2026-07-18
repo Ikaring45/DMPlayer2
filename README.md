@@ -2,6 +2,8 @@
 
 iPhone / iPad向けの、ローカル音源専用PWAミュージックプレーヤーです。音源はサーバーへ送信せず、ブラウザ内のIndexedDBへ保存します。インターネット接続なしでライブラリの閲覧と再生ができます。
 
+公開版: [https://ikaring45.github.io/DMPlayer2/](https://ikaring45.github.io/DMPlayer2/)
+
 ## 主な機能
 
 - MP3 / M4A / AAC / FLAC / WAV / AIFF / OGG / OPUSなどの複数選択追加
