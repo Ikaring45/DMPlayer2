@@ -1,0 +1,15 @@
+{
+  "name": "DMPlayer2 — ローカルミュージックプレーヤー",
+  "short_name": "DMPlayer2",
+  "description": "iPhoneとiPadのための完全ローカル音源プレーヤー",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f7fb",
+  "theme_color": "#f7f7fb",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
