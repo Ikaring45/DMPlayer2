@@ -9,10 +9,15 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
   const current = tracks.find((track) => track.id === currentId);
   const lastId = useRef<string | undefined>(undefined);
   const activeUrl = useRef<string | undefined>(undefined);
-  const lastSavedSecond = useRef(-1);
   const audioContext = useRef<AudioContext | undefined>(undefined);
   const equalizerFilters = useRef<BiquadFilterNode[]>([]);
-  const positionKey = (id: string) => `dmplayer2:position:${id}`;
+
+  useEffect(() => {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith("dmplayer2:position:")) localStorage.removeItem(key);
+    }
+  }, []);
 
   useEffect(() => {
     const handlePlayRequest = (event: Event) => {
@@ -45,7 +50,6 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
       if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
       activeUrl.current = URL.createObjectURL(detail.blob);
       lastId.current = detail.id;
-      lastSavedSecond.current = -1;
       audio.src = activeUrl.current;
       audio.volume = usePlayerStore.getState().volume;
       audio.load();
@@ -76,7 +80,6 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
       if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
       activeUrl.current = URL.createObjectURL(current.blob);
       lastId.current = current.id;
-      lastSavedSecond.current = -1;
       audio.src = activeUrl.current;
       audio.load();
       void updateTrack(current.id, { playCount: current.playCount + 1, lastPlayedAt: Date.now() });
@@ -166,21 +169,8 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
       onLoadedMetadata={(event) => {
         if (!current) return;
         if (!current.duration) void updateTrack(current.id, { duration: event.currentTarget.duration });
-        const savedPosition = Number(localStorage.getItem(positionKey(current.id)) ?? 0);
-        if (savedPosition > 0 && savedPosition < event.currentTarget.duration - 3) {
-          event.currentTarget.currentTime = savedPosition;
-        }
-      }}
-      onTimeUpdate={(event) => {
-        if (!current) return;
-        const second = Math.floor(event.currentTarget.currentTime);
-        if (second > 0 && second % 5 === 0 && second !== lastSavedSecond.current) {
-          lastSavedSecond.current = second;
-          localStorage.setItem(positionKey(current.id), String(event.currentTarget.currentTime));
-        }
       }}
       onEnded={() => {
-        if (current) localStorage.removeItem(positionKey(current.id));
         if (repeat === "one" && audioRef.current) {
           audioRef.current.currentTime = 0;
           void audioRef.current.play();
