@@ -199,3 +199,10 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.library-links,.library-hero,.search-box,.setting-card,.equalizer-card,.mini-player,.tab-bar,.sidebar,.ipad-player,.action-sheet,.toast,.now-landscape-rail{background:var(--surface-solid)}}
 @media (prefers-reduced-motion:reduce){.app-shell::before,.app-shell::after{animation:none}}
 @media (max-width:759px){.mini-player{bottom:calc(78px + var(--safe-bottom))}}
+
+@property --art-color-1{syntax:"<color>";inherits:true;initial-value:#582744}
+@property --art-color-2{syntax:"<color>";inherits:true;initial-value:#29345b}
+@property --art-color-3{syntax:"<color>";inherits:true;initial-value:#58356f}
+@property --art-color-4{syntax:"<color>";inherits:true;initial-value:#183a45}
+@property --art-color-5{syntax:"<color>";inherits:true;initial-value:#315049}
+.now-backdrop{transition:--art-color-1 3.8s ease,--art-color-2 4.2s ease,--art-color-3 3.5s ease,--art-color-4 4.6s ease,--art-color-5 4s ease}.now-backdrop .backdrop-art{transition:opacity 3.2s cubic-bezier(.22,.65,.24,1),filter 3.2s ease}.now-backdrop.artwork-changing .backdrop-art{opacity:.025!important;transition:opacity .11s ease}.now-backdrop.artwork-changing canvas{opacity:.45;transition:opacity .12s ease}.now-backdrop canvas{transition:opacity 2.8s ease}

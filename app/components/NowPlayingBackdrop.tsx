@@ -4,12 +4,21 @@ import { useEffect, useMemo, useRef } from "react";
 import type { Track } from "../types";
 
 type AudioFrame = { bands: number[]; level: number };
+const DEFAULT_COLORS = ["#ff3e79", "#ff8157", "#8a5cff", "#2cb7ff", "#37dfc4"];
+
+function blendColor(current: string, target: string, amount: number) {
+  const parse = (color: string) => [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
+  const from = parse(current);
+  const to = parse(target);
+  return `#${from.map((value, index) => Math.round(value + (to[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
 
 export function NowPlayingBackdrop({ track }: { track: Track }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const levelsRef = useRef<AudioFrame>({ bands: [0, 0, 0, 0, 0], level: 0 });
-  const colorsRef = useRef(["#ff3e79", "#ff8157", "#8a5cff", "#2cb7ff", "#37dfc4"]);
+  const targetColorsRef = useRef([...DEFAULT_COLORS]);
+  const currentColorsRef = useRef([...DEFAULT_COLORS]);
   const artwork = useMemo(() => track.artwork ?? (track.artworkData
     ? new Blob([track.artworkData], { type: track.artworkType || "image/jpeg" })
     : undefined), [track.artwork, track.artworkData, track.artworkType]);
@@ -45,12 +54,28 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
         const vivid = average.map((value) => Math.max(18, Math.min(244, mean + (value - mean) * 1.65 + 12)));
         return `#${vivid.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
       });
-      colorsRef.current = colors;
+      targetColorsRef.current = colors;
       colors.forEach((color, index) => root.style.setProperty(`--art-color-${index + 1}`, color));
     };
     image.src = artworkUrl;
     return () => { image.onload = null; };
   }, [artworkUrl]);
+
+  useEffect(() => {
+    let timer = 0;
+    const softenArtworkChange = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      root.classList.add("artwork-changing");
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => root.classList.remove("artwork-changing"), 140);
+    };
+    window.addEventListener("dmplayer:track-transition", softenArtworkChange);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("dmplayer:track-transition", softenArtworkChange);
+    };
+  }, []);
 
   useEffect(() => {
     const update = (event: Event) => {
@@ -89,7 +114,8 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
 
       context.globalCompositeOperation = "screen";
       context.filter = `blur(${28 + energy * 22}px)`;
-      colorsRef.current.forEach((color, index) => {
+      currentColorsRef.current = currentColorsRef.current.map((color, index) => blendColor(color, targetColorsRef.current[index] ?? color, 0.018));
+      currentColorsRef.current.forEach((color, index) => {
         const strength = smoothed[index] ?? 0;
         const phase = timestamp / (5200 - index * 430) + index * 1.37;
         const radius = Math.min(bounds.width, bounds.height) * (0.19 + index * 0.025 + strength * 0.11);
