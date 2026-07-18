@@ -9,11 +9,47 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const levelsRef = useRef<AudioFrame>({ bands: [0, 0, 0, 0, 0], level: 0 });
-  const artwork = track.artwork;
+  const colorsRef = useRef(["#ff3e79", "#ff8157", "#8a5cff", "#2cb7ff", "#37dfc4"]);
+  const artwork = useMemo(() => track.artwork ?? (track.artworkData
+    ? new Blob([track.artworkData], { type: track.artworkType || "image/jpeg" })
+    : undefined), [track.artwork, track.artworkData, track.artworkType]);
   const artworkUrl = useMemo(() => artwork ? URL.createObjectURL(artwork) : undefined, [artwork]);
 
   useEffect(() => () => {
     if (artworkUrl) URL.revokeObjectURL(artworkUrl);
+  }, [artworkUrl]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!artworkUrl || !root) return;
+    const image = new Image();
+    image.onload = () => {
+      const sampleCanvas = document.createElement("canvas");
+      sampleCanvas.width = 24;
+      sampleCanvas.height = 24;
+      const sampleContext = sampleCanvas.getContext("2d", { willReadFrequently: true });
+      if (!sampleContext) return;
+      sampleContext.drawImage(image, 0, 0, 24, 24);
+      const pixels = sampleContext.getImageData(0, 0, 24, 24).data;
+      const anchors = [[4, 4], [19, 5], [12, 12], [5, 19], [19, 19]];
+      const colors = anchors.map(([centerX, centerY]) => {
+        let red = 0; let green = 0; let blue = 0; let count = 0;
+        for (let y = centerY - 3; y <= centerY + 3; y += 1) {
+          for (let x = centerX - 3; x <= centerX + 3; x += 1) {
+            const offset = (Math.max(0, Math.min(23, y)) * 24 + Math.max(0, Math.min(23, x))) * 4;
+            red += pixels[offset]; green += pixels[offset + 1]; blue += pixels[offset + 2]; count += 1;
+          }
+        }
+        const average = [red / count, green / count, blue / count];
+        const mean = average.reduce((sum, value) => sum + value, 0) / 3;
+        const vivid = average.map((value) => Math.max(18, Math.min(244, mean + (value - mean) * 1.65 + 12)));
+        return `#${vivid.map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
+      });
+      colorsRef.current = colors;
+      colors.forEach((color, index) => root.style.setProperty(`--art-color-${index + 1}`, color));
+    };
+    image.src = artworkUrl;
+    return () => { image.onload = null; };
   }, [artworkUrl]);
 
   useEffect(() => {
@@ -33,8 +69,6 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
     let frame = 0;
     let smoothed = [0, 0, 0, 0, 0];
     let energy = 0;
-    const colors = ["#ff3e79", "#ff8157", "#8a5cff", "#2cb7ff", "#37dfc4"];
-
     const draw = (timestamp: number) => {
       const bounds = canvas.getBoundingClientRect();
       const ratio = Math.min(1.5, window.devicePixelRatio || 1);
@@ -55,7 +89,7 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
 
       context.globalCompositeOperation = "screen";
       context.filter = `blur(${28 + energy * 22}px)`;
-      colors.forEach((color, index) => {
+      colorsRef.current.forEach((color, index) => {
         const strength = smoothed[index] ?? 0;
         const phase = timestamp / (5200 - index * 430) + index * 1.37;
         const radius = Math.min(bounds.width, bounds.height) * (0.19 + index * 0.025 + strength * 0.11);
@@ -81,6 +115,7 @@ export function NowPlayingBackdrop({ track }: { track: Track }) {
   return (
     <div className={`now-backdrop ${artworkUrl ? "has-art" : "fallback-art"}`} ref={rootRef} aria-hidden="true">
       <div className="backdrop-art backdrop-art-base" style={artStyle} />
+      <div className="backdrop-art backdrop-art-focus" style={artStyle} />
       <div className="backdrop-art backdrop-art-orbit one" style={artStyle} />
       <div className="backdrop-art backdrop-art-orbit two" style={artStyle} />
       <div className="backdrop-art backdrop-art-orbit three" style={artStyle} />
