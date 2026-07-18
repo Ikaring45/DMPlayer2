@@ -94,6 +94,12 @@ function persistSession(state: AppState) {
   void db.saveSetting("playbackSession", session);
 }
 
+function announceTrackTransition(direction: "next" | "previous") {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("dmplayer:track-transition", { detail: { direction } }));
+  }
+}
+
 export const usePlayerStore = create<AppState>((set, get) => ({
   tracks: [], playlists: [], queue: [], originalQueue: [], playing: false, shuffle: false,
   repeat: "off", volume: 1, theme: "system", eqEnabled: false, eqBands: [0, 0, 0, 0, 0], ready: false,
@@ -223,6 +229,12 @@ export const usePlayerStore = create<AppState>((set, get) => ({
   playTrack: (id, source) => {
     const ids = source ?? get().tracks.map((track) => track.id);
     const queue = get().shuffle ? shuffleIds(ids, id) : ids;
+    const previousId = get().currentId;
+    if (previousId && previousId !== id) {
+      const previousIndex = ids.indexOf(previousId);
+      const nextIndex = ids.indexOf(id);
+      announceTrackTransition(previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? "previous" : "next");
+    }
     set({ currentId: id, queue, originalQueue: ids, playing: true });
     persistSession(get());
     const track = get().tracks.find((item) => item.id === id);
@@ -233,8 +245,8 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     }
   },
   setPlaying: (playing) => set({ playing }),
-  next: () => { const id = nextFrom(get(), 1); if (id) { set({ currentId: id, playing: true }); persistSession(get()); } },
-  previous: () => { const id = nextFrom(get(), -1); if (id) { set({ currentId: id, playing: true }); persistSession(get()); } },
+  next: () => { const id = nextFrom(get(), 1); if (id) { if (id !== get().currentId) announceTrackTransition("next"); set({ currentId: id, playing: true }); persistSession(get()); } },
+  previous: () => { const id = nextFrom(get(), -1); if (id) { if (id !== get().currentId) announceTrackTransition("previous"); set({ currentId: id, playing: true }); persistSession(get()); } },
   addNext: (id) => { const { queue, currentId } = get(); const clean = queue.filter((item) => item !== id); const index = Math.max(0, clean.indexOf(currentId ?? "")); clean.splice(index + 1, 0, id); set({ queue: clean }); persistSession(get()); },
   addToQueue: (id) => { if (!get().queue.includes(id)) { set({ queue: [...get().queue, id] }); persistSession(get()); } },
   moveQueueItem: (from, to) => {
