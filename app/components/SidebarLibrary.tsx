@@ -18,9 +18,6 @@ export function SidebarLibrary() {
     <section className="sidebar-library" aria-label="サイドバーのプレイリスト">
       <div className="sidebar-quick">
         <span>クイックアクセス</span>
-        <button disabled={!favorites.length} onClick={() => playCollection(favorites)}>
-          <i className="quick-favorite">♥</i><strong>お気に入り</strong><small>{favorites.length}</small>
-        </button>
         <button disabled={!recent.length} onClick={() => playCollection(recent)}>
           <i className="quick-recent">◷</i><strong>最近追加</strong><small>{recent.length}</small>
         </button>
@@ -36,6 +33,9 @@ export function SidebarLibrary() {
         >＋</button>
       </div>
       <div className="sidebar-playlist-list">
+        <button className="smart-playlist" disabled={!favorites.length} onClick={() => playCollection(favorites)}>
+          <i>♥</i><span><strong>お気に入りの曲</strong><small>自動更新 · {favorites.length}曲</small></span>
+        </button>
         {playlists.length ? playlists.map((playlist, index) => (
           <button
             key={playlist.id}
@@ -47,7 +47,7 @@ export function SidebarLibrary() {
           </button>
         )) : <p>作成したプレイリストが<br />ここに表示されます</p>}
       </div>
-      <footer><span>{tracks.length}曲</span><span>{playlists.length}プレイリスト</span></footer>
+      <footer><span>{tracks.length}曲</span><span>{playlists.length + 1}プレイリスト</span></footer>
     </section>
   );
 }

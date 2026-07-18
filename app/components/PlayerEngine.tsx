@@ -12,6 +12,8 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
   const activeUrl = useRef<string | undefined>(undefined);
   const audioContext = useRef<AudioContext | undefined>(undefined);
   const equalizerFilters = useRef<BiquadFilterNode[]>([]);
+  const analyser = useRef<AnalyserNode | undefined>(undefined);
+  const visualizerFrame = useRef(0);
 
   useEffect(() => {
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
@@ -41,10 +43,30 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
             filter.gain.value = state.eqEnabled ? state.eqBands[index] ?? 0 : 0;
             return filter;
           });
+          const spectrum = context.createAnalyser();
+          spectrum.fftSize = 512;
+          spectrum.smoothingTimeConstant = 0.82;
           source.connect(filters[0]);
-          filters.forEach((filter, index) => filter.connect(filters[index + 1] ?? context.destination));
+          filters.forEach((filter, index) => filter.connect(filters[index + 1] ?? spectrum));
+          spectrum.connect(context.destination);
           audioContext.current = context;
           equalizerFilters.current = filters;
+          analyser.current = spectrum;
+          const samples = new Uint8Array(spectrum.frequencyBinCount);
+          const publishSpectrum = () => {
+            spectrum.getByteFrequencyData(samples);
+            const ranges = [[1, 4], [4, 12], [12, 32], [32, 78], [78, 190]];
+            const bands = ranges.map(([from, to]) => {
+              let sum = 0;
+              const end = Math.min(to, samples.length);
+              for (let index = from; index < end; index += 1) sum += samples[index];
+              return sum / Math.max(1, end - from) / 255;
+            });
+            const level = bands.reduce((sum, value) => sum + value, 0) / bands.length;
+            window.dispatchEvent(new CustomEvent("dmplayer:audio-frame", { detail: { bands, level } }));
+            visualizerFrame.current = requestAnimationFrame(publishSpectrum);
+          };
+          visualizerFrame.current = requestAnimationFrame(publishSpectrum);
         }
       }
       if (audioContext.current?.state === "suspended") void audioContext.current.resume();
@@ -64,6 +86,7 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
 
   useEffect(() => () => {
     if (activeUrl.current) URL.revokeObjectURL(activeUrl.current);
+    cancelAnimationFrame(visualizerFrame.current);
     if (audioContext.current) void audioContext.current.close();
   }, []);
 
