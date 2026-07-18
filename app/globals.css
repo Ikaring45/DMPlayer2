@@ -218,10 +218,12 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 @media (min-width:760px){.sidebar>button{box-shadow:none}.sidebar>button:not(.active):hover{background:color-mix(in srgb,var(--glass-bg) 38%,transparent)}}
 
 /* Full-player title bar doubles as a native-feeling pull-to-dismiss handle. */
-.now-playing>header{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
-.now-playing>header::before{content:"";position:absolute;z-index:1;top:calc(var(--safe-top) + 6px);left:50%;width:36px;height:4px;border-radius:999px;background:rgba(255,255,255,.38);box-shadow:0 1px 2px rgba(0,0,0,.2);transform:translateX(-50%);pointer-events:none}
+.now-playing>header{height:calc(76px + var(--safe-top));padding:calc(var(--safe-top) + 18px) 14px 0;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.now-playing>header::before{content:"";position:absolute;z-index:1;top:calc(var(--safe-top) + 13px);left:50%;width:36px;height:4px;border-radius:999px;background:rgba(255,255,255,.38);box-shadow:0 1px 2px rgba(0,0,0,.2);transform:translateX(-50%);pointer-events:none}
 .now-playing>header .now-header-album{position:absolute;left:64px;right:64px;overflow:hidden;text-align:center;text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:.01em}
 .now-playing>header .now-header-spacer{width:44px;height:44px;flex:0 0 44px}
+.now-playing .now-body{min-height:calc(100dvh - 76px)}
+.jukebox-artwork .art-large,.ipad-art .art-medium{border:0}
 .now-playing.dragging{animation:none;opacity:var(--dismiss-opacity);transform:translate3d(0,var(--dismiss-offset),0) scale(var(--dismiss-scale));will-change:transform,opacity}
 .now-playing.dragging>header{cursor:grabbing}
 .now-playing.drag-reset{animation:none;opacity:var(--dismiss-opacity);transform:translate3d(0,var(--dismiss-offset),0) scale(var(--dismiss-scale));transition:transform .38s cubic-bezier(.22,.9,.25,1),opacity .3s ease;will-change:transform,opacity}
