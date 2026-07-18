@@ -116,6 +116,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 .ipad-player{display:none}
 @media (min-width:1024px) and (orientation:landscape){
   .content{margin-right:340px;padding-right:24px}
+  .content-inner{width:min(100%,1120px);max-width:none;margin-left:0;margin-right:0}
   .mini-player,.desktop-now{display:none!important}
   .ipad-player{position:fixed;z-index:24;right:16px;top:calc(16px + var(--safe-top));bottom:calc(16px + var(--safe-bottom));width:316px;display:flex;flex-direction:column;padding:16px;border:1px solid var(--line);border-radius:30px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 9%,var(--surface-solid)),var(--surface-solid) 48%);box-shadow:0 22px 60px rgba(24,20,45,.16);overflow:hidden}
   .ipad-player>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}.ipad-player>header>span{color:var(--accent);font-size:9px;font-weight:850;letter-spacing:.17em}.ipad-player>header>button{min-height:36px;padding:0 8px;color:var(--muted);font-size:11px}
