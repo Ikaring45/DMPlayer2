@@ -127,7 +127,7 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       eqBands: eqBands.length === 5 ? eqBands : [0, 0, 0, 0, 0],
       ready: true,
     });
-    for (const track of tracks.filter((item) => !item.metadataParsed)) {
+    for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed)) {
       try {
         const embedded = await readEmbeddedMetadata(track.blob);
         const updated: Track = {
@@ -139,13 +139,16 @@ export const usePlayerStore = create<AppState>((set, get) => ({
           artwork: embedded.artwork || track.artwork,
           artworkData: embedded.artworkData || track.artworkData,
           artworkType: embedded.artworkType || track.artworkType,
+          lyrics: embedded.lyrics || track.lyrics,
+          syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
+          lyricsParsed: true,
           metadataParsed: true,
           updatedAt: Date.now(),
         };
         await db.saveTrack(updated);
         set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
       } catch {
-        const updated = { ...track, metadataParsed: true, updatedAt: Date.now() };
+        const updated = { ...track, metadataParsed: true, lyricsParsed: true, updatedAt: Date.now() };
         await db.saveTrack(updated);
         set((state) => ({ tracks: state.tracks.map((item) => item.id === updated.id ? updated : item) }));
       }
@@ -185,6 +188,9 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         artwork: embedded.artwork,
         artworkData: embedded.artworkData,
         artworkType: embedded.artworkType,
+        lyrics: embedded.lyrics,
+        syncedLyrics: embedded.syncedLyrics,
+        lyricsParsed: embedded.lyricsParsed ?? true,
         metadataParsed: true,
         fileName: file.name, fileType, fileSize: audioData.byteLength, sourceFileSize: file.size,
         blob: storedBlob, audioData, favorite: false, playCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
@@ -289,6 +295,9 @@ export const usePlayerStore = create<AppState>((set, get) => ({
         artwork: embedded.artwork || track.artwork,
         artworkData: embedded.artworkData || track.artworkData,
         artworkType: embedded.artworkType || track.artworkType,
+        lyrics: embedded.lyrics || track.lyrics,
+        syncedLyrics: embedded.syncedLyrics?.length ? embedded.syncedLyrics : track.syncedLyrics,
+        lyricsParsed: true,
         metadataParsed: true,
         updatedAt: Date.now(),
       };

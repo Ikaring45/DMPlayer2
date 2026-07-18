@@ -21,6 +21,7 @@ export type Track = {
   audioData: ArrayBuffer;
   lyrics?: string;
   syncedLyrics?: LyricLine[];
+  lyricsParsed?: boolean;
   midi?: MidiInfo;
   favorite: boolean;
   playCount: number;
