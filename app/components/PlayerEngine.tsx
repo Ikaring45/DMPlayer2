@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { getAudioFormatLabel } from "../lib/audio-formats";
 import { usePlayerStore } from "../store";
+import { SidebarLibrary } from "./SidebarLibrary";
 
 export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudioElement | null> }) {
   const { tracks, currentId, volume, playing, repeat, eqEnabled, eqBands, setPlaying, updateTrack, next, previous } = usePlayerStore();
@@ -152,7 +153,7 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
     };
   }, [audioRef, currentId, playing]);
 
-  return (
+  return (<>
     <audio
       ref={audioRef}
       onPlay={() => setPlaying(true)}
@@ -177,5 +178,6 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
         } else next();
       }}
     />
-  );
+    <SidebarLibrary />
+  </>);
 }
