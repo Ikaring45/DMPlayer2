@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/lyrics";
 import { usePlayerStore } from "../store";
-import { Artwork } from "./Visuals";
+import { FavoriteButton } from "./FavoriteButton";
+import { Artwork, BrandMark } from "./Visuals";
 
 export function TabletPlayer({
   audioRef,
@@ -45,7 +46,7 @@ export function TabletPlayer({
   };
 
   if (!track) {
-    return <aside className="ipad-player empty"><span>DM</span><strong>曲を選択してください</strong><small>ライブラリから音楽を選ぶと、ここに再生画面が表示されます。</small></aside>;
+    return <aside className="ipad-player empty"><BrandMark /><strong>曲を選択してください</strong><small>ライブラリから音楽を選ぶと、ここに再生画面が表示されます。</small></aside>;
   }
 
   return (
@@ -54,7 +55,10 @@ export function TabletPlayer({
       <button className="ipad-art" onClick={onOpen}><Artwork track={track} size="medium" /></button>
       <div className="ipad-track-info">
         <div><strong>{track.title}</strong><small>{track.artist} · {track.album}</small></div>
-        <button onClick={() => void store.updateTrack(track.id, { favorite: !track.favorite })}>{track.favorite ? "♥" : "♡"}</button>
+        <FavoriteButton
+          favorite={track.favorite}
+          onToggle={() => void store.updateTrack(track.id, { favorite: !track.favorite })}
+        />
       </div>
       <div className="ipad-seek">
         <input

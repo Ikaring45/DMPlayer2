@@ -8,6 +8,16 @@ const artColors = [
   ["#fb7185", "#a855f7"], ["#60a5fa", "#34d399"], ["#f59e0b", "#ef4444"],
 ];
 
+export function BrandMark({ className = "" }: { className?: string }) {
+  return (
+    <span className={`brand-mark ${className}`.trim()} aria-hidden="true">
+      {/* Static PWA artwork stays relative so GitHub Pages subpaths resolve it. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="./icon-192.png" alt="" />
+    </span>
+  );
+}
+
 function hash(value: string) {
   return [...value].reduce((total, char) => total + char.charCodeAt(0), 0);
 }
@@ -19,7 +29,7 @@ export function Artwork({ track, size = "medium" }: { track?: Track; size?: "sma
   useEffect(() => () => { if (artworkUrl) URL.revokeObjectURL(artworkUrl); }, [artworkUrl]);
 
   return (
-    <div className={`art art-${size}`} style={{ background: `linear-gradient(145deg, ${colors[0]}, ${colors[1]})` }} aria-hidden="true">
+    <div className={`art art-${size} ${artworkUrl ? "has-artwork" : "fallback-artwork"}`} style={{ background: `linear-gradient(145deg, ${colors[0]}, ${colors[1]})` }} aria-hidden="true">
       {artworkUrl ? (
         // Blob URLs are local IndexedDB artwork and cannot use Next's remote image optimizer.
         // eslint-disable-next-line @next/next/no-img-element
@@ -84,7 +94,7 @@ export function PlayerControlIcon({ name }: { name: "shuffle" | "previous" | "pl
   return <svg className="player-control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3.5v-11L7 10H4Z" /><path d="M14.2 10.1a3.2 3.2 0 0 1 0 3.8" /><path d="M16.8 7a7 7 0 0 1 0 10" className={name === "volume-low" ? "volume-outer" : ""} /></svg>;
 }
 
-export type UiIconName = "play" | "next" | "queue" | "heart" | "edit" | "refresh" | "playlist" | "info" | "trash" | "shuffle" | "back" | "more" | "sound" | "palette" | "storage" | "shield" | "app" | "add" | "search" | "close";
+export type UiIconName = "play" | "next" | "queue" | "heart" | "edit" | "refresh" | "playlist" | "info" | "trash" | "shuffle" | "back" | "up" | "down" | "more" | "sound" | "palette" | "storage" | "shield" | "app" | "add" | "search" | "close";
 
 export function UiIcon({ name }: { name: UiIconName }) {
   const common = { className: "ui-icon", viewBox: "0 0 24 24", "aria-hidden": true } as const;
@@ -99,6 +109,8 @@ export function UiIcon({ name }: { name: UiIconName }) {
   if (name === "trash") return <svg {...common}><path d="M5 7h14M9 7V4.5h6V7m-8 0 1 13h8l1-13M10 10v7m4-7v7" /></svg>;
   if (name === "shuffle") return <svg {...common}><path d="M4 7h2c5.5 0 6 10 12 10h2m-3-3 3 3-3 3M4 17h2c2 0 3.4-1.4 4.5-3m3-4c1.1-1.7 2.5-3 4.5-3h2m-3-3 3 3-3 3" /></svg>;
   if (name === "back") return <svg {...common}><path d="m14.5 5-7 7 7 7" /></svg>;
+  if (name === "up") return <svg {...common}><path d="m6.5 14.5 5.5-5 5.5 5" /></svg>;
+  if (name === "down") return <svg {...common}><path d="m6.5 9.5 5.5 5 5.5-5" /></svg>;
   if (name === "sound") return <svg {...common}><path d="M4 10v4h3l4 3.5v-11L7 10H4Zm10.5.2a3 3 0 0 1 0 3.6M17 7.5a6.5 6.5 0 0 1 0 9" /></svg>;
   if (name === "palette") return <svg {...common}><path d="M12 4a8 8 0 1 0 0 16h1.2a1.8 1.8 0 0 0 0-3.6h-.7a1.5 1.5 0 0 1 0-3H16A4 4 0 0 0 20 9.5C20 6.4 16.4 4 12 4Z" /><circle cx="8" cy="9" r=".8" /><circle cx="11" cy="7" r=".8" /><circle cx="15" cy="8" r=".8" /></svg>;
   if (name === "storage") return <svg {...common}><ellipse cx="12" cy="6.5" rx="7.5" ry="3" /><path d="M4.5 6.5v5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-5m-15 5v5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-5" /></svg>;

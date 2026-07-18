@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Track } from "../types";
+import { UiIcon } from "./Visuals";
 
 type LyricsPanelProps = {
   track: Track;
@@ -59,8 +60,8 @@ export function LyricsPanel({
 
   return <section className="lyrics-panel">
     <div className="lyrics-toolbar">
-      <div><small>LIVE LYRICS</small><strong>{track.title}</strong></div>
-      <button onClick={onEdit} aria-label="歌詞を編集">•••</button>
+      <div><small>歌詞</small><strong>{track.title}</strong></div>
+      <button onClick={onEdit} aria-label="歌詞を編集"><UiIcon name="more" /></button>
     </div>
     <div
       className="lyrics-scroll"

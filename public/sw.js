@@ -1,12 +1,13 @@
-const CACHE = "dmplayer2-shell-v6";
+const CACHE = "dmplayer2-shell-v7";
 const BUILD_ASSETS = /* __DMPLAYER_BUILD_ASSETS__ */ [];
 const SHELL = [
   "./",
   "./manifest.webmanifest",
-  "./icon.svg",
+  "./favicon-32.png",
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
+  "./dmplayer-icon.png",
   ...BUILD_ASSETS,
 ];
 self.addEventListener("install", (event) => {

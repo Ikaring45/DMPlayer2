@@ -2,23 +2,23 @@
 
 import { usePlayerStore } from "../store";
 
-export function SidebarLibrary() {
-  const { tracks, playlists, playTrack, createPlaylist } = usePlayerStore();
-  const favorites = tracks.filter((track) => track.favorite).map((track) => track.id);
+type SidebarLibraryProps = {
+  onOpenRecent: () => void;
+  onOpenPlaylist: (playlistId: string) => void;
+};
+
+export function SidebarLibrary({ onOpenRecent, onOpenPlaylist }: SidebarLibraryProps) {
+  const { tracks, playlists, createPlaylist } = usePlayerStore();
+  const favorites = tracks.filter((track) => track.favorite);
   const recent = [...tracks]
     .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, 20)
-    .map((track) => track.id);
-
-  const playCollection = (ids: string[]) => {
-    if (ids[0]) playTrack(ids[0], ids);
-  };
+    .slice(0, 20);
 
   return (
     <section className="sidebar-library" aria-label="サイドバーのプレイリスト">
       <div className="sidebar-quick">
         <span>クイックアクセス</span>
-        <button disabled={!recent.length} onClick={() => playCollection(recent)}>
+        <button onClick={onOpenRecent}>
           <i className="quick-recent">◷</i><strong>最近追加</strong><small>{recent.length}</small>
         </button>
       </div>
@@ -33,14 +33,13 @@ export function SidebarLibrary() {
         >＋</button>
       </div>
       <div className="sidebar-playlist-list">
-        <button className="smart-playlist" disabled={!favorites.length} onClick={() => playCollection(favorites)}>
+        <button className="smart-playlist" onClick={() => onOpenPlaylist("favorites")}>
           <i>♥</i><span><strong>お気に入りの曲</strong><small>自動更新 · {favorites.length}曲</small></span>
         </button>
         {playlists.length ? playlists.map((playlist, index) => (
           <button
             key={playlist.id}
-            disabled={!playlist.trackIds.length}
-            onClick={() => playCollection(playlist.trackIds)}
+            onClick={() => onOpenPlaylist(playlist.id)}
           >
             <i style={{ "--playlist-hue": `${(index * 47 + 325) % 360}` } as React.CSSProperties}>♫</i>
             <span><strong>{playlist.name}</strong><small>{playlist.trackIds.length}曲</small></span>

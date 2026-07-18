@@ -11,8 +11,9 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "DMPlayer2", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
-      { url: `${publicBasePath}/icon.svg`, type: "image/svg+xml" },
+      { url: `${publicBasePath}/favicon-32.png`, type: "image/png", sizes: "32x32" },
       { url: `${publicBasePath}/icon-192.png`, type: "image/png", sizes: "192x192" },
+      { url: `${publicBasePath}/icon-512.png`, type: "image/png", sizes: "512x512" },
     ],
     apple: `${publicBasePath}/apple-touch-icon.png`,
   },
@@ -68,5 +69,5 @@ const viewportBootstrap = `(() => {
 })();`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ja"><head><script dangerouslySetInnerHTML={{ __html: viewportBootstrap }} /></head><body>{children}</body></html>;
+  return <html lang="ja" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: viewportBootstrap }} /></head><body>{children}</body></html>;
 }

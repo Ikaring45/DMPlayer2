@@ -1,0 +1,130 @@
+import assert from "node:assert/strict";
+import { access, readFile, stat } from "node:fs/promises";
+import test from "node:test";
+
+const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
+
+test("sidebar quick access opens detail views without starting playback", async () => {
+  const sidebar = await source("../app/components/SidebarLibrary.tsx");
+
+  assert.match(sidebar, /onOpenRecent:\s*\(\)\s*=>\s*void/);
+  assert.match(sidebar, /onOpenPlaylist:\s*\(playlistId:\s*string\)\s*=>\s*void/);
+  assert.match(sidebar, /onClick=\{onOpenRecent\}/);
+  assert.match(sidebar, /onClick=\{\(\)\s*=>\s*onOpenPlaylist\("favorites"\)\}/);
+  assert.match(sidebar, /onClick=\{\(\)\s*=>\s*onOpenPlaylist\(playlist\.id\)\}/);
+  assert.doesNotMatch(sidebar, /\bplayTrack\b|\bsetPlaying\b|\bplayCollection\b/);
+});
+
+test("full player artist and favorite controls retain their interactive routes", async () => {
+  const [player, favorite, tablet] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/FavoriteButton.tsx"),
+    source("../app/components/TabletPlayer.tsx"),
+  ]);
+
+  assert.match(player, /type LibraryView\s*=\s*[^;]*"artist-detail"/);
+  assert.match(player, /className="artist-link"\s+onClick=\{\(\)\s*=>\s*onOpenArtist\(/);
+  assert.match(player, /setView\("artist-detail"\)/);
+  assert.match(player, /onOpenArtist=\{\(artist\)\s*=>\s*\{\s*openArtistDetail\(artist\)/);
+
+  assert.match(favorite, /aria-pressed=\{favorite\}/);
+  assert.match(favorite, /setPopKey\(\(key\)\s*=>\s*key\s*\+\s*1\)/);
+  assert.match(favorite, /favorite-pop/);
+  assert.match(favorite, /<UiIcon name="heart"\s*\/>/);
+  assert.match(player, /<FavoriteButton\s+favorite=\{track\.favorite\}/);
+  assert.match(tablet, /<FavoriteButton/);
+});
+
+test("album ambient background remains artwork-derived, cached, layered, and motion-aware", async () => {
+  const [component, player, css] = await Promise.all([
+    source("../app/components/AnimatedAlbumBackground.tsx"),
+    source("../app/PlayerApp.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /<AnimatedAlbumBackground/);
+  assert.match(player, /artwork=\{artworkUrl\}/);
+  assert.match(component, /const SAMPLE_SIZE = 48/);
+  assert.match(component, /const paletteCache = new Map<string,\s*Promise<AlbumAmbientPalette>>\(\)/);
+  assert.match(component, /document\.createElement\("canvas"\)/);
+  assert.match(component, /getCachedPalette\(artwork,\s*cacheKey\)/);
+  assert.match(component, /clamp\(transitionDurationMs,\s*MIN_TRANSITION_MS,\s*MAX_TRANSITION_MS\)/);
+  assert.match(component, /matchMedia\("\(prefers-reduced-motion:\s*reduce\)"\)/);
+  assert.match(component, /data-quality=\{resolvedQuality\}/);
+  assert.match(component, /data-reduced-motion=\{reducedMotion\s*\?\s*"true"\s*:\s*"false"\}/);
+
+  for (let index = 1; index <= 5; index += 1) {
+    assert.match(component, new RegExp(`ambient-blob ambient-blob-${index}`));
+  }
+
+  assert.match(css, /\.ambient-blob-1\{[^}]*var\(--ambient-blob-1-duration\)/);
+  assert.match(css, /\.ambient-blob-2\{[^}]*var\(--ambient-blob-2-duration\)/);
+  assert.match(css, /\.ambient-blob-3\{[^}]*var\(--ambient-blob-3-duration\)/);
+  assert.match(css, /\.animated-album-background\[data-quality="low"\][\s\S]*?\.ambient-blob-5\{display:none\}/);
+  assert.match(css, /\.animated-album-background\[data-reduced-motion="true"\]\s+\.ambient-blob\{animation:none!important\}/);
+});
+
+test("full player keeps its background fixed while lyrics and queue own bounded scroll regions", async () => {
+  const [player, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /className=\{`now-playing mode-\$\{playerMode\}/);
+  assert.match(player, /<TrackAmbientBackground track=\{track\}\s*\/><header[\s\S]*?<div className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
+  assert.match(css, /\.now-playing\{[\s\S]*?overflow:hidden!important/);
+  assert.match(css, /\.now-scroll\{[\s\S]*?position:absolute[\s\S]*?overflow-y:auto/);
+  assert.match(css, /\.now-scroll\.mode-lyrics,\.now-scroll\.mode-queue\{overflow:hidden\}/);
+  assert.match(css, /\.now-scroll\.mode-lyrics \.now-body,\.now-scroll\.mode-queue \.now-body\{[\s\S]*?height:100%;[\s\S]*?min-height:0!important;[\s\S]*?grid-template-rows:minmax\(0,1fr\) auto auto auto auto/);
+  assert.match(css, /\.mode-lyrics \.lyrics-panel\{overflow:hidden;border:0;background:transparent/);
+  assert.match(css, /\.mode-lyrics \.lyrics-scroll\{[\s\S]*?min-height:0;[\s\S]*?contain:layout paint/);
+  assert.match(css, /\.mode-queue \.queue-list\{[^}]*overflow-y:auto[^}]*overscroll-behavior:contain/);
+  assert.match(css, /\.mode-queue \.queue-panel\{[\s\S]*?display:grid;[\s\S]*?grid-template-rows:auto minmax\(0,1fr\)/);
+  assert.match(css, /\.now-scroll\.mode-lyrics \.now-body,\.now-scroll\.mode-queue \.now-body\{[\s\S]*?max-height:100%;[\s\S]*?overflow:hidden/);
+
+  assert.match(player, /className="queue-actions"[\s\S]*?<UiIcon name="up"\s*\/>[\s\S]*?<UiIcon name="down"\s*\/>[\s\S]*?<UiIcon name="close"\s*\/>/);
+  assert.match(player, /const visibleQueue = store\.queue[\s\S]*?\.slice\(currentQueueIndex >= 0 \? currentQueueIndex : 0\)/);
+  assert.match(player, /disabled=\{upcomingCount === 0\}/);
+});
+
+test("artwork rims stay removed and every installed app icon is PNG", async () => {
+  const [css, manifestText, layout, serviceWorker] = await Promise.all([
+    source("../app/globals.css"),
+    source("../public/manifest.webmanifest"),
+    source("../app/layout.tsx"),
+    source("../public/sw.js"),
+  ]);
+  const manifest = JSON.parse(manifestText);
+
+  assert.match(css, /\.art\.has-artwork\{[^}]*border:0!important;[^}]*outline:0!important/);
+  assert.match(css, /\.art\.has-artwork img\{[\s\S]*?inset:-1px;[\s\S]*?width:calc\(100% \+ 2px\);[\s\S]*?height:calc\(100% \+ 2px\)/);
+  assert.match(css, /\.art::before,\.art::after\{display:none!important\}/);
+
+  assert.equal(manifest.icons.length, 2);
+  assert.deepEqual(
+    manifest.icons.map(({ src, sizes, type }) => ({ src, sizes, type })),
+    [
+      { src: "./icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "./icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+  );
+  assert.doesNotMatch(manifestText, /\.svg\b/i);
+  assert.match(layout, /favicon-32\.png/);
+  assert.match(layout, /icon-192\.png/);
+  assert.match(layout, /icon-512\.png/);
+  assert.doesNotMatch(layout, /icon\.svg/);
+  assert.match(serviceWorker, /\.\/icon-192\.png/);
+  assert.match(serviceWorker, /\.\/icon-512\.png/);
+  assert.doesNotMatch(serviceWorker, /icon\.svg/);
+
+  for (const path of [
+    "../public/favicon-32.png",
+    "../public/icon-192.png",
+    "../public/icon-512.png",
+    "../public/apple-touch-icon.png",
+  ]) {
+    const url = new URL(path, import.meta.url);
+    await access(url);
+    assert.ok((await stat(url)).size > 0, `${path} must not be empty`);
+  }
+});
