@@ -51,6 +51,21 @@ test("tablet player uses an accessible icon-only expand control", async () => {
   assert.match(css, /\.ipad-player>header>\.ipad-expand\{width:36px/);
 });
 
+test("brand artwork is reserved for the app shell instead of repeated page decoration", async () => {
+  const [player, tablet, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/TabletPlayer.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.equal((player.match(/<BrandMark/g) ?? []).length, 2);
+  assert.doesNotMatch(tablet, /BrandMark/);
+  assert.match(player, /className="empty-library-glyph"[\s\S]*?<UiIcon name="artwork"\s*\/>/);
+  assert.match(player, /className="content-header library-topbar header-actions-only"/);
+  assert.match(css, /\.content-header\.header-actions-only\{justify-content:flex-end\}/);
+  assert.match(css, /\.empty-library-glyph\{/);
+});
+
 test("full player artist and favorite controls retain their interactive routes", async () => {
   const [player, favorite, tablet] = await Promise.all([
     source("../app/PlayerApp.tsx"),

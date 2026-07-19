@@ -30,6 +30,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 .content-inner { width:min(100%,820px); margin:auto; }
 .content h1 { margin:10px 0 22px; font-size:clamp(2rem,9vw,3rem); letter-spacing:-.045em; line-height:1; }
 .content-header { height:48px; display:flex; align-items:center; justify-content:space-between; }
+.content-header.header-actions-only{justify-content:flex-end}
 .brand,.sidebar-brand span { width:38px; height:38px; display:grid; place-items:center; color:#fff; font-size:12px; font-weight:800; letter-spacing:-.04em; background:linear-gradient(145deg,#f74f85,#8b5cf6); border-radius:12px; box-shadow:0 6px 16px rgba(239,63,116,.24); }
 .circle-add { width:44px; height:44px; border-radius:50%; color:var(--accent); font-size:30px; line-height:1; }
 .back { min-height:44px; margin-left:-8px; padding:0 8px; color:var(--accent); font-weight:600; }
@@ -147,7 +148,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .ipad-controls{display:flex;align-items:center;justify-content:center;gap:29px;margin:8px 0}.ipad-controls>button{width:44px;height:44px;font-size:17px}.ipad-controls .ipad-play{width:62px;height:62px;border-radius:50%;background:var(--text);color:var(--bg);font-size:24px;box-shadow:var(--shadow)}
   .ipad-player-status{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.ipad-player-status button,.ipad-player-status span{font-size:9px;color:var(--muted)}.ipad-player-status button.active{color:var(--accent)}
   .ipad-up-next{min-height:0;display:flex;flex:1;flex-direction:column;overflow:hidden;padding-top:10px}.ipad-up-next>span{margin-bottom:5px;color:var(--muted);font-size:10px;font-weight:700}.ipad-up-next>button{min-height:48px;display:flex;align-items:center;gap:8px;text-align:left}.ipad-up-next .art-small{width:38px;height:38px;border-radius:9px}.ipad-up-next>button>span{min-width:0;display:flex;flex-direction:column}.ipad-up-next strong,.ipad-up-next small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ipad-up-next strong{font-size:11px}.ipad-up-next small{color:var(--muted);font-size:9px}
-  .ipad-player.empty{align-items:center;justify-content:center;text-align:center}.ipad-player.empty>span{width:74px;height:74px;display:grid;place-items:center;border-radius:22px;background:linear-gradient(145deg,#f74f85,#8b5cf6);color:#fff;font-weight:850;box-shadow:var(--shadow)}.ipad-player.empty>strong{margin-top:18px}.ipad-player.empty>small{max-width:220px;margin-top:7px;color:var(--muted);line-height:1.45}
+  .ipad-player.empty{align-items:center;justify-content:center;text-align:center}.ipad-player.empty>span{width:64px;height:64px;display:grid;place-items:center;border-radius:20px;background:color-mix(in srgb,var(--accent) 12%,var(--surface-solid));color:var(--accent)}.ipad-player.empty>span .ui-icon{width:29px;height:29px}.ipad-player.empty>strong{margin-top:15px}.ipad-player.empty>small{max-width:220px;margin-top:7px;color:var(--muted);line-height:1.45}
 }
 
 @media (min-width:1600px) and (min-height:720px) and (orientation:landscape){
@@ -378,7 +379,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 .brand-mark img{width:100%;height:100%;display:block;object-fit:cover}
 .sidebar-brand .brand-mark{width:38px;height:38px;display:block;border-radius:12px;background:#090b1d}
 .loading .brand-mark{width:74px;height:74px;display:block;border:0;border-radius:22px;background:#090b1d;box-shadow:0 22px 56px rgba(77,35,171,.28)}
-.empty-state .empty-brand-mark{width:112px;height:112px;flex-basis:112px;margin-bottom:26px;border-radius:30px;box-shadow:0 24px 58px rgba(55,26,131,.3)}
+.empty-library-glyph{width:96px;height:96px;display:grid;flex:0 0 96px;place-items:center;margin-bottom:24px;border-radius:30px;background:color-mix(in srgb,var(--accent) 12%,var(--surface-solid));color:var(--accent);box-shadow:0 18px 46px rgba(25,18,50,.12)}.empty-library-glyph .ui-icon{width:42px;height:42px}
 
 /* Crop one subpixel beyond the mask so an artwork's fallback gradient cannot form a colored rim. */
 .art.has-artwork{position:relative;border:0!important;outline:0!important;background:#0d0e14!important}

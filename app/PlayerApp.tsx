@@ -32,7 +32,7 @@ function formatBytes(value: number) {
 }
 
 function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
-  return <div className="empty-state"><BrandMark className="empty-brand-mark" /><h2>音楽を、この端末に。</h2><p>音源は端末内に保存されます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・FLAC・WAV・MIDIほか</span></div>;
+  return <div className="empty-state"><div className="empty-library-glyph"><UiIcon name="artwork" /></div><h2>音楽を、この端末に。</h2><p>音源は端末内に保存されます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・FLAC・WAV・MIDIほか</span></div>;
 }
 
 function TrackRow({ track, onMenu, source }: { track: Track; onMenu: (track: Track) => void; source?: string[] }) {
@@ -604,7 +604,7 @@ export default function PlayerApp() {
     const featured = current || recent[0];
     const replay = mostPlayed.length ? mostPlayed : history;
     return <>
-      <header className="content-header library-topbar"><BrandMark /><button className="circle-add" onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /></button></header>
+      <header className="content-header library-topbar header-actions-only"><button className="circle-add" onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /></button></header>
       <div className="library-heading"><div><span>YOUR MUSIC</span><h1>ライブラリ</h1></div><p>{store.tracks.length}曲 · {(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(0)} MB</p></div>
       <button className="library-feature" onClick={() => store.playTrack(featured.id)}>
         <span className="feature-backdrop"><Artwork track={featured} size="medium" /></span>
@@ -631,7 +631,7 @@ export default function PlayerApp() {
     onBack={() => { setMotion("back"); setSelectedPlaylistId(undefined); }}
     onMenu={setMenuTrack}
   /> : <>
-    <header className="content-header"><BrandMark /><button className="circle-add" aria-label="プレイリストを作成" onClick={() => { const name = prompt("プレイリスト名"); if (name?.trim()) void store.createPlaylist(name.trim()); }}><UiIcon name="add" /></button></header>
+    <header className="content-header header-actions-only"><button className="circle-add" aria-label="プレイリストを作成" onClick={() => { const name = prompt("プレイリスト名"); if (name?.trim()) void store.createPlaylist(name.trim()); }}><UiIcon name="add" /></button></header>
     <div className="page-heading"><small>YOUR COLLECTIONS</small><h1>プレイリスト</h1></div>
     <div className="playlist-list">
       <div className="smart-playlist-row">
@@ -643,9 +643,8 @@ export default function PlayerApp() {
       {store.playlists.map((playlist) => <div key={playlist.id}><button className="playlist-main" onClick={() => { setMotion("forward"); setSelectedPlaylistId(playlist.id); }}><span><UiIcon name="playlist" /></span><div><strong>{playlist.name}</strong><small>{playlist.trackIds.length}曲</small></div></button><button aria-label={`${playlist.name}を削除`} onClick={() => { if (confirm(`「${playlist.name}」を削除しますか？`)) void store.deletePlaylist(playlist.id); }}><UiIcon name="more" /></button></div>)}
     </div>
   </>;
-  const searchContent = <><header className="content-header"><BrandMark /><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><div className="page-heading"><small>FIND YOUR MUSIC</small><h1>検索</h1></div><div className="search-box"><span><UiIcon name="search" /></span><input placeholder="曲、アーティスト、アルバム" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button aria-label="検索を消去" onClick={() => setQuery("")}><UiIcon name="close" /></button>}</div>{query ? <div className="track-list search-results">{filtered.map((track) => <TrackRow key={track.id} track={track} onMenu={setMenuTrack} />)}{!filtered.length && <div className="simple-empty"><h2>見つかりませんでした</h2><p>別のキーワードで検索してください。</p></div>}</div> : <div className="search-hint"><UiIcon name="search" /><p>ライブラリ内を検索</p></div>}</>;
+  const searchContent = <><header className="content-header header-actions-only"><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><div className="page-heading"><small>FIND YOUR MUSIC</small><h1>検索</h1></div><div className="search-box"><span><UiIcon name="search" /></span><input placeholder="曲、アーティスト、アルバム" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button aria-label="検索を消去" onClick={() => setQuery("")}><UiIcon name="close" /></button>}</div>{query ? <div className="track-list search-results">{filtered.map((track) => <TrackRow key={track.id} track={track} onMenu={setMenuTrack} />)}{!filtered.length && <div className="simple-empty"><h2>見つかりませんでした</h2><p>別のキーワードで検索してください。</p></div>}</div> : <div className="search-hint"><UiIcon name="search" /><p>ライブラリ内を検索</p></div>}</>;
   const settingsContent = <div className="settings-page">
-    <header className="content-header"><BrandMark /></header>
     <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
     <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="端末と表示テーマを同期" /><div className="setting-card segmented">{(["system", "light", "dark"] as const).map((theme) => <button className={store.theme === theme ? "active" : ""} key={theme} onClick={() => store.setTheme(theme)}>{theme === "system" ? "自動" : theme === "light" ? "ライト" : "ダーク"}</button>)}</div></section>

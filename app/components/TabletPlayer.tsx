@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/lyrics";
 import { usePlayerStore } from "../store";
 import { FavoriteButton } from "./FavoriteButton";
-import { Artwork, BrandMark, UiIcon } from "./Visuals";
+import { Artwork, UiIcon } from "./Visuals";
 
 export function TabletPlayer({
   audioRef,
@@ -46,7 +46,7 @@ export function TabletPlayer({
   };
 
   if (!track) {
-    return <aside className="ipad-player empty"><BrandMark /><strong>曲を選択</strong></aside>;
+    return <aside className="ipad-player empty"><span><UiIcon name="artwork" /></span><strong>曲を選択</strong></aside>;
   }
 
   return (
