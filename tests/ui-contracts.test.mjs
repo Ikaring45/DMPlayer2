@@ -103,6 +103,9 @@ test("full player switches artwork, lyrics, and queue inside one stable animated
   assert.match(player, /aria-controls="now-stage-player"/);
   assert.match(player, /aria-controls="now-stage-lyrics"/);
   assert.match(player, /aria-controls="now-stage-queue"/);
+  assert.match(player, /aria-label="再生"\s+aria-pressed=\{playerMode === "player"\}/);
+  assert.match(player, /aria-label="歌詞"\s+aria-pressed=\{playerMode === "lyrics"\}/);
+  assert.match(player, /aria-label="次に再生"\s+aria-pressed=\{playerMode === "queue"\}/);
 
   assert.match(css, /\.now-playing\{[\s\S]*?overflow:hidden!important/);
   assert.match(css, /\.now-scroll\{[\s\S]*?position:absolute[\s\S]*?overflow-y:auto/);
