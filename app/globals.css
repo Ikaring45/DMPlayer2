@@ -1875,22 +1875,31 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .sidebar>.sidebar-toggle{
     position:absolute;
     z-index:3;
-    top:calc(28px + var(--safe-top));
-    right:-15px;
-    width:30px;
-    min-height:30px;
+    top:50%;
+    right:-18px;
+    width:18px;
+    min-height:48px;
     padding:0;
     display:grid;
     place-items:center;
     border:1px solid var(--glass-line);
-    border-radius:50%;
+    border-left:0;
+    border-radius:0 12px 12px 0;
     color:var(--muted);
-    background:color-mix(in srgb,var(--surface-solid) 78%,transparent);
-    box-shadow:0 7px 22px rgba(18,16,36,.16),inset 0 1px rgba(255,255,255,.5);
+    background:color-mix(in srgb,var(--surface-solid) 68%,transparent);
+    box-shadow:7px 0 18px rgba(18,16,36,.1),inset 0 1px rgba(255,255,255,.35);
     -webkit-backdrop-filter:blur(18px) saturate(1.4);
     backdrop-filter:blur(18px) saturate(1.4);
+    transform:translateY(-50%);
   }
-  .sidebar-toggle .ui-icon{width:16px;height:16px;transition:transform .32s cubic-bezier(.22,.8,.22,1)}
+  .sidebar>.sidebar-toggle:active{transform:translateY(-50%) scale(.94)}
+  .sidebar>.sidebar-toggle:focus-visible{
+    outline:0;
+    border-color:color-mix(in srgb,var(--accent) 48%,var(--glass-line));
+    color:var(--accent);
+    background:color-mix(in srgb,var(--accent) 12%,var(--surface-solid));
+  }
+  .sidebar-toggle .ui-icon{width:13px;height:13px;transition:transform .32s cubic-bezier(.22,.8,.22,1)}
   .mini-player,.now-playing{transition:left .32s cubic-bezier(.22,.8,.22,1)}
 
   .app-shell.sidebar-collapsed{padding-left:76px}

@@ -34,6 +34,7 @@ test("desktop sidebar collapses to an accessible persistent navigation rail", as
   assert.match(css, /\.sidebar-collapsed \.sidebar\{width:76px/);
   assert.match(css, /\.sidebar-collapsed \.sidebar-library\{display:none\}/);
   assert.match(css, /\.sidebar-collapsed \.now-playing\{left:76px\}/);
+  assert.match(css, /\.sidebar>\.sidebar-toggle\{[\s\S]*?top:50%;[\s\S]*?border-radius:0 12px 12px 0/);
 });
 
 test("full player artist and favorite controls retain their interactive routes", async () => {
