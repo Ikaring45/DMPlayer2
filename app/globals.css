@@ -1733,3 +1733,117 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 @media (prefers-reduced-motion:reduce){
   .now-stage-view{transition:opacity .12s ease,visibility 0s linear .12s;transform:none!important;filter:none!important}
 }
+
+/* Compact portrait phones: iPhone SE 2/3, iPhone 8-class displays and other
+   short screens keep the complete player, including the mode dock, above the
+   home indicator without turning the whole sheet into a scrolling document. */
+@media (orientation:portrait) and (max-width:390px) and (max-height:700px){
+  .now-playing>header{
+    height:calc(62px + var(--safe-top));
+    padding:calc(var(--safe-top) + 9px) 10px 0;
+  }
+  .now-playing>header::before{top:calc(var(--safe-top) + 7px);width:34px;height:3px}
+  .now-playing>header .now-header-album{left:54px;right:54px;font-size:10px}
+  .now-playing .now-scroll,
+  .now-playing .now-scroll.mode-player,
+  .now-playing .now-scroll.mode-lyrics,
+  .now-playing .now-scroll.mode-queue{inset:calc(62px + var(--safe-top)) 0 0}
+  .now-playing .now-scroll.mode-player .now-body,
+  .now-playing .now-scroll.mode-lyrics .now-body,
+  .now-playing .now-scroll.mode-queue .now-body{
+    height:100%;
+    min-height:100%!important;
+    justify-content:center;
+    overflow:hidden;
+    padding:2px 18px calc(7px + var(--safe-bottom));
+  }
+  .now-stage{height:clamp(218px,36dvh,240px)}
+  .now-stage-player .jukebox-artwork{width:min(64vw,240px)}
+  .now-playing .now-scroll.mode-player .now-info,
+  .now-playing .now-scroll.mode-lyrics .now-info,
+  .now-playing .now-scroll.mode-queue .now-info{min-height:49px;margin-top:12px}
+  .now-playing .now-scroll.mode-player .now-info h1,
+  .now-playing .now-scroll.mode-lyrics .now-info h1,
+  .now-playing .now-scroll.mode-queue .now-info h1{margin-bottom:2px;font-size:20px}
+  .now-playing .now-scroll.mode-player .now-info p,
+  .now-playing .now-scroll.mode-lyrics .now-info p,
+  .now-playing .now-scroll.mode-queue .now-info p{font-size:11px}
+  .now-playing .now-scroll.mode-player .favorite-button,
+  .now-playing .now-scroll.mode-lyrics .favorite-button,
+  .now-playing .now-scroll.mode-queue .favorite-button{width:40px;height:40px;flex-basis:40px}
+  .now-playing .now-scroll.mode-player .favorite-button .ui-icon,
+  .now-playing .now-scroll.mode-lyrics .favorite-button .ui-icon,
+  .now-playing .now-scroll.mode-queue .favorite-button .ui-icon{width:23px;height:23px}
+  .now-playing .now-scroll.mode-player .seek,
+  .now-playing .now-scroll.mode-lyrics .seek,
+  .now-playing .now-scroll.mode-queue .seek{margin-top:6px}
+  .now-playing .now-scroll.mode-player .seek input,
+  .now-playing .now-scroll.mode-lyrics .seek input,
+  .now-playing .now-scroll.mode-queue .seek input{height:28px}
+  .now-playing .now-scroll.mode-player .play-controls,
+  .now-playing .now-scroll.mode-lyrics .play-controls,
+  .now-playing .now-scroll.mode-queue .play-controls{margin:5px 0}
+  .now-playing .now-scroll.mode-player .play-controls button,
+  .now-playing .now-scroll.mode-lyrics .play-controls button,
+  .now-playing .now-scroll.mode-queue .play-controls button{width:44px;height:44px}
+  .now-playing .now-scroll.mode-player .play-controls .play-main,
+  .now-playing .now-scroll.mode-lyrics .play-controls .play-main,
+  .now-playing .now-scroll.mode-queue .play-controls .play-main{width:60px;height:60px}
+  .now-playing .now-scroll.mode-player .volume-row,
+  .now-playing .now-scroll.mode-lyrics .volume-row,
+  .now-playing .now-scroll.mode-queue .volume-row{display:none}
+  .now-mode-dock{min-height:48px;margin-top:4px!important}
+  .now-mode-dock button{min-height:40px;gap:5px;padding:0 6px!important;font-size:10px}
+  .now-stage-lyrics .lyrics-toolbar{height:44px;padding-bottom:5px}
+  .now-stage-lyrics .lyrics-scroll{height:calc(100% - 44px);padding:28px 1px 42px}
+  .now-stage-lyrics .lyrics-leading-space{height:8%}
+  .now-stage-lyrics .lyrics-trailing-space{height:36%}
+  .now-stage-lyrics .lyrics-line{padding:7px 2px;font-size:clamp(22px,7vw,27px);line-height:1.17}
+  .now-stage-queue .queue-heading{padding:10px 11px 8px}
+  .now-stage-queue .queue-row{min-height:58px}
+  .now-stage-queue .queue-track .art-small{width:44px;height:44px}
+}
+
+/* Original 4-inch iPhone SE and similarly narrow devices. */
+@media (orientation:portrait) and (max-width:340px) and (max-height:620px){
+  .now-playing>header{
+    height:calc(56px + var(--safe-top));
+    padding-top:calc(var(--safe-top) + 6px);
+  }
+  .now-playing>header::before{top:calc(var(--safe-top) + 5px)}
+  .now-playing .now-scroll,
+  .now-playing .now-scroll.mode-player,
+  .now-playing .now-scroll.mode-lyrics,
+  .now-playing .now-scroll.mode-queue{inset:calc(56px + var(--safe-top)) 0 0}
+  .now-playing .now-scroll.mode-player .now-body,
+  .now-playing .now-scroll.mode-lyrics .now-body,
+  .now-playing .now-scroll.mode-queue .now-body{padding-right:14px;padding-left:14px}
+  .now-stage{height:clamp(176px,33dvh,194px)}
+  .now-stage-player .jukebox-artwork{width:min(60vw,194px)}
+  .now-playing .now-scroll.mode-player .now-info,
+  .now-playing .now-scroll.mode-lyrics .now-info,
+  .now-playing .now-scroll.mode-queue .now-info{min-height:44px;margin-top:7px}
+  .now-playing .now-scroll.mode-player .now-info h1,
+  .now-playing .now-scroll.mode-lyrics .now-info h1,
+  .now-playing .now-scroll.mode-queue .now-info h1{font-size:18px}
+  .now-playing .now-scroll.mode-player .seek,
+  .now-playing .now-scroll.mode-lyrics .seek,
+  .now-playing .now-scroll.mode-queue .seek{margin-top:2px}
+  .now-playing .now-scroll.mode-player .play-controls,
+  .now-playing .now-scroll.mode-lyrics .play-controls,
+  .now-playing .now-scroll.mode-queue .play-controls{margin:1px 0}
+  .now-playing .now-scroll.mode-player .play-controls .play-main,
+  .now-playing .now-scroll.mode-lyrics .play-controls .play-main,
+  .now-playing .now-scroll.mode-queue .play-controls .play-main{width:56px;height:56px}
+  .now-mode-dock{min-height:44px;margin-top:1px!important}
+  .now-mode-dock button{min-height:36px}
+  .now-mode-dock button>span{display:none}
+  .now-mode-dock button>.ui-icon{width:20px;height:20px}
+  .now-stage-lyrics .lyrics-toolbar{height:38px}
+  .now-stage-lyrics .lyrics-scroll{height:calc(100% - 38px);padding:18px 1px 32px}
+  .now-stage-lyrics .lyrics-line{padding:5px 2px;font-size:21px}
+  .now-stage-queue .queue-heading{padding:8px 9px 6px}
+  .now-stage-queue .queue-heading p{display:none}
+  .now-stage-queue .queue-row{min-height:52px}
+  .now-stage-queue .queue-track .art-small{width:40px;height:40px}
+}
