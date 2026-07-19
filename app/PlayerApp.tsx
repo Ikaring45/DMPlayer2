@@ -32,7 +32,7 @@ function formatBytes(value: number) {
 }
 
 function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
-  return <div className="empty-state"><BrandMark className="empty-brand-mark" /><h2>音楽を、この端末に。</h2><p>ファイルは外部へ送信されません。iPhoneやiPadの「ファイル」から音源を追加できます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・FLAC・WAV・MIDI・AIFF・OGG・OPUS</span></div>;
+  return <div className="empty-state"><BrandMark className="empty-brand-mark" /><h2>音楽を、この端末に。</h2><p>音源は端末内に保存されます。</p><button className="primary-button" onClick={onAdd}>音楽を追加</button><span>MP3・M4A・FLAC・WAV・MIDIほか</span></div>;
 }
 
 function TrackRow({ track, onMenu, source }: { track: Track; onMenu: (track: Track) => void; source?: string[] }) {
@@ -175,7 +175,7 @@ function ArtistDetail({
           <div><strong>{albumGroups.length}</strong><span>アルバム</span></div>
           <div><strong>{favoriteCount}</strong><span>お気に入り</span></div>
         </div>
-        <p>{totalPlays > 0 ? `この端末で合計${totalPlays}回再生しています。` : "この端末に保存した音楽を、アーティストごとにまとめています。"}</p>
+        {totalPlays > 0 && <p>再生 {totalPlays}回</p>}
       </aside>
     </div>
 
@@ -412,12 +412,18 @@ export default function PlayerApp() {
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
   const [smoothScrollRequest, setSmoothScrollRequest] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const contentRef = useRef<HTMLElement>(null);
   const loadLibrary = store.load;
   useEffect(() => {
     if (fileRef.current) fileRef.current.accept = AUDIO_FILE_ACCEPT;
+  }, []);
+  useEffect(() => {
+    if (localStorage.getItem("dmplayer-sidebar-collapsed") !== "true") return;
+    const frame = requestAnimationFrame(() => setSidebarCollapsed(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
     void loadLibrary();
@@ -626,7 +632,7 @@ export default function PlayerApp() {
     onMenu={setMenuTrack}
   /> : <>
     <header className="content-header"><BrandMark /><button className="circle-add" aria-label="プレイリストを作成" onClick={() => { const name = prompt("プレイリスト名"); if (name?.trim()) void store.createPlaylist(name.trim()); }}><UiIcon name="add" /></button></header>
-    <div className="page-heading"><small>YOUR COLLECTIONS</small><h1>プレイリスト</h1><p>好きな曲を、聴きたいまとまりで。</p></div>
+    <div className="page-heading"><small>YOUR COLLECTIONS</small><h1>プレイリスト</h1></div>
     <div className="playlist-list">
       <div className="smart-playlist-row">
         <button className="playlist-main" onClick={() => { setMotion("forward"); setSelectedPlaylistId("favorites"); }}>
@@ -637,17 +643,17 @@ export default function PlayerApp() {
       {store.playlists.map((playlist) => <div key={playlist.id}><button className="playlist-main" onClick={() => { setMotion("forward"); setSelectedPlaylistId(playlist.id); }}><span><UiIcon name="playlist" /></span><div><strong>{playlist.name}</strong><small>{playlist.trackIds.length}曲</small></div></button><button aria-label={`${playlist.name}を削除`} onClick={() => { if (confirm(`「${playlist.name}」を削除しますか？`)) void store.deletePlaylist(playlist.id); }}><UiIcon name="more" /></button></div>)}
     </div>
   </>;
-  const searchContent = <><header className="content-header"><BrandMark /><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><div className="page-heading"><small>FIND YOUR MUSIC</small><h1>検索</h1></div><div className="search-box"><span><UiIcon name="search" /></span><input placeholder="曲、アーティスト、アルバム" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button aria-label="検索を消去" onClick={() => setQuery("")}><UiIcon name="close" /></button>}</div>{query ? <div className="track-list search-results">{filtered.map((track) => <TrackRow key={track.id} track={track} onMenu={setMenuTrack} />)}{!filtered.length && <div className="simple-empty"><h2>見つかりませんでした</h2><p>別のキーワードで検索してください。</p></div>}</div> : <div className="search-hint"><UiIcon name="search" /><p>ライブラリ内を検索</p><span>{store.tracks.length}曲がこの端末に保存されています</span></div>}</>;
+  const searchContent = <><header className="content-header"><BrandMark /><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><div className="page-heading"><small>FIND YOUR MUSIC</small><h1>検索</h1></div><div className="search-box"><span><UiIcon name="search" /></span><input placeholder="曲、アーティスト、アルバム" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button aria-label="検索を消去" onClick={() => setQuery("")}><UiIcon name="close" /></button>}</div>{query ? <div className="track-list search-results">{filtered.map((track) => <TrackRow key={track.id} track={track} onMenu={setMenuTrack} />)}{!filtered.length && <div className="simple-empty"><h2>見つかりませんでした</h2><p>別のキーワードで検索してください。</p></div>}</div> : <div className="search-hint"><UiIcon name="search" /><p>ライブラリ内を検索</p></div>}</>;
   const settingsContent = <div className="settings-page">
     <header className="content-header"><BrandMark /></header>
-    <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1><p>聴こえ方と保存方法を、この端末に合わせます。</p></div>
+    <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
     <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="端末と表示テーマを同期" /><div className="setting-card segmented">{(["system", "light", "dark"] as const).map((theme) => <button className={store.theme === theme ? "active" : ""} key={theme} onClick={() => store.setTheme(theme)}>{theme === "system" ? "自動" : theme === "light" ? "ライト" : "ダーク"}</button>)}</div></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
-    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.4.0</strong></div><div className="setting-note">音源は外部へ送信されません。ホーム画面へ追加すると、オフラインでもライブラリを利用できます。</div></div></section>
+    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.4.0</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
   </div>;
 
-  return <main className="app-shell"><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)}><NavIcon name={id} />{label}</button>)}<button className="sidebar-add" onClick={openPicker}>＋ 音楽を追加</button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
+  return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
     {menuTrack && <div className="sheet-backdrop" onClick={() => setMenuTrack(undefined)}><section className="action-sheet" role="dialog" aria-modal="true" aria-label={`${menuTrack.title}の操作メニュー`} onClick={(event) => event.stopPropagation()}>
       <div className="sheet-handle" />
       <div className="sheet-track"><Artwork track={menuTrack} size="small" /><div><strong>{menuTrack.title}</strong><small>{menuTrack.artist} · {trackBitrate(menuTrack) ? `${Math.round(trackBitrate(menuTrack)! / 1000)} kbps` : menuTrack.codec || "Audio"}</small></div></div>

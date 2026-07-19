@@ -15,6 +15,27 @@ test("sidebar quick access opens detail views without starting playback", async 
   assert.doesNotMatch(sidebar, /\bplayTrack\b|\bsetPlaying\b|\bplayCollection\b/);
 });
 
+test("desktop sidebar collapses to an accessible persistent navigation rail", async () => {
+  const [player, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /const \[sidebarCollapsed,\s*setSidebarCollapsed\]\s*=\s*useState\(false\)/);
+  assert.match(player, /localStorage\.getItem\("dmplayer-sidebar-collapsed"\)/);
+  assert.match(player, /localStorage\.setItem\("dmplayer-sidebar-collapsed"/);
+  assert.match(player, /className=\{`app-shell \$\{sidebarCollapsed \? "sidebar-collapsed" : ""\}`\}/);
+  assert.match(player, /className="sidebar-toggle"/);
+  assert.match(player, /aria-label=\{sidebarCollapsed \? "サイドバーを開く" : "サイドバーを収納"\}/);
+  assert.match(player, /aria-expanded=\{!sidebarCollapsed\}/);
+  assert.match(player, /className="sidebar-label"/);
+
+  assert.match(css, /\.app-shell\.sidebar-collapsed\{padding-left:76px\}/);
+  assert.match(css, /\.sidebar-collapsed \.sidebar\{width:76px/);
+  assert.match(css, /\.sidebar-collapsed \.sidebar-library\{display:none\}/);
+  assert.match(css, /\.sidebar-collapsed \.now-playing\{left:76px\}/);
+});
+
 test("full player artist and favorite controls retain their interactive routes", async () => {
   const [player, favorite, tablet] = await Promise.all([
     source("../app/PlayerApp.tsx"),

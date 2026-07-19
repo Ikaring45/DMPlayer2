@@ -46,7 +46,7 @@ export function TabletPlayer({
   };
 
   if (!track) {
-    return <aside className="ipad-player empty"><BrandMark /><strong>曲を選択してください</strong><small>ライブラリから音楽を選ぶと、ここに再生画面が表示されます。</small></aside>;
+    return <aside className="ipad-player empty"><BrandMark /><strong>曲を選択</strong></aside>;
   }
 
   return (

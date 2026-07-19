@@ -1847,3 +1847,61 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .now-stage-queue .queue-row{min-height:52px}
   .now-stage-queue .queue-track .art-small{width:40px;height:40px}
 }
+
+/* Collapsible desktop sidebar. The compact rail keeps primary navigation available. */
+@media (min-width:760px){
+  .app-shell{transition:padding-left .32s cubic-bezier(.22,.8,.22,1)}
+  .sidebar{
+    overflow:visible;
+    transition:width .32s cubic-bezier(.22,.8,.22,1),padding .32s cubic-bezier(.22,.8,.22,1);
+  }
+  .sidebar-brand{min-width:0;transition:margin .32s cubic-bezier(.22,.8,.22,1)}
+  .sidebar-brand strong{
+    overflow:hidden;
+    white-space:nowrap;
+    transition:width .24s ease,opacity .18s ease,transform .24s ease;
+  }
+  .sidebar .sidebar-label{
+    width:auto;
+    min-width:0;
+    overflow:hidden;
+    white-space:nowrap;
+    text-align:left;
+    font-size:inherit;
+    transition:width .24s ease,opacity .18s ease,transform .24s ease;
+  }
+  .sidebar .sidebar-add{gap:9px}
+  .sidebar .sidebar-add>.ui-icon{width:19px;height:19px;flex:0 0 19px}
+  .sidebar>.sidebar-toggle{
+    position:absolute;
+    z-index:3;
+    top:calc(28px + var(--safe-top));
+    right:-15px;
+    width:30px;
+    min-height:30px;
+    padding:0;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--glass-line);
+    border-radius:50%;
+    color:var(--muted);
+    background:color-mix(in srgb,var(--surface-solid) 78%,transparent);
+    box-shadow:0 7px 22px rgba(18,16,36,.16),inset 0 1px rgba(255,255,255,.5);
+    -webkit-backdrop-filter:blur(18px) saturate(1.4);
+    backdrop-filter:blur(18px) saturate(1.4);
+  }
+  .sidebar-toggle .ui-icon{width:16px;height:16px;transition:transform .32s cubic-bezier(.22,.8,.22,1)}
+  .mini-player,.now-playing{transition:left .32s cubic-bezier(.22,.8,.22,1)}
+
+  .app-shell.sidebar-collapsed{padding-left:76px}
+  .sidebar-collapsed .sidebar{width:76px;padding-right:10px;padding-left:10px}
+  .sidebar-collapsed .sidebar-library{display:none}
+  .sidebar-collapsed .sidebar-brand{justify-content:center;margin-right:0;margin-left:0}
+  .sidebar-collapsed .sidebar-brand strong,
+  .sidebar-collapsed .sidebar-label{width:0;opacity:0;transform:translateX(-5px)}
+  .sidebar-collapsed .sidebar>button:not(.sidebar-toggle){justify-content:center;gap:0;padding-right:0;padding-left:0}
+  .sidebar-collapsed .sidebar .sidebar-add{border-radius:15px}
+  .sidebar-collapsed .sidebar-toggle .ui-icon{transform:rotate(180deg)}
+  .sidebar-collapsed .mini-player{left:96px}
+  .sidebar-collapsed .now-playing{left:76px}
+}
