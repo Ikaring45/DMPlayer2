@@ -1592,6 +1592,20 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .now-landscape-rail{grid-column:3;grid-row:1/8}
 }
 @media (orientation:landscape) and (max-height:599px) and (max-width:1099px){
+  .now-playing>header{
+    height:calc(58px + var(--safe-top));
+    padding:calc(var(--safe-top) + 7px) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
+  }
+  .now-playing>header::before{top:calc(var(--safe-top) + 6px);width:34px;height:3px}
+  .now-playing>header .now-header-album{
+    left:calc(58px + var(--safe-left));
+    right:calc(58px + var(--safe-right));
+    font-size:10px;
+  }
+  .now-playing .now-scroll,
+  .now-playing .now-scroll.mode-player,
+  .now-playing .now-scroll.mode-lyrics,
+  .now-playing .now-scroll.mode-queue{inset:calc(58px + var(--safe-top)) 0 0}
   .now-playing .now-scroll.mode-player .now-body,
   .now-playing .now-scroll.mode-lyrics .now-body,
   .now-playing .now-scroll.mode-queue .now-body{
@@ -1606,22 +1620,50 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
     padding:0 calc(16px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(16px + var(--safe-left));
   }
   .now-stage{grid-column:1;grid-row:1/5;width:100%;height:min(100%,390px)}
+  .now-stage-player .jukebox-artwork{
+    width:min(100%,calc(100dvh - 104px - var(--safe-top) - var(--safe-bottom)));
+    max-height:100%;
+  }
   .now-info,.seek,.play-controls,.now-tabs{grid-column:2}
   .now-playing .now-scroll.mode-player .now-info,
   .now-playing .now-scroll.mode-lyrics .now-info,
-  .now-playing .now-scroll.mode-queue .now-info{margin-top:0;align-self:end}
+  .now-playing .now-scroll.mode-queue .now-info{min-height:45px;margin-top:0;align-self:end}
+  .now-playing .now-scroll.mode-player .now-info h1,
+  .now-playing .now-scroll.mode-lyrics .now-info h1,
+  .now-playing .now-scroll.mode-queue .now-info h1{margin-bottom:2px;font-size:20px}
+  .now-playing .now-scroll.mode-player .now-info p,
+  .now-playing .now-scroll.mode-lyrics .now-info p,
+  .now-playing .now-scroll.mode-queue .now-info p{font-size:12px}
+  .now-playing .now-scroll.mode-player .favorite-button,
+  .now-playing .now-scroll.mode-lyrics .favorite-button,
+  .now-playing .now-scroll.mode-queue .favorite-button{width:40px;height:40px;flex-basis:40px}
   .now-playing .now-scroll.mode-player .seek,
   .now-playing .now-scroll.mode-lyrics .seek,
   .now-playing .now-scroll.mode-queue .seek{margin-top:0}
   .now-playing .now-scroll.mode-player .play-controls,
   .now-playing .now-scroll.mode-lyrics .play-controls,
   .now-playing .now-scroll.mode-queue .play-controls{margin:0}
+  .now-playing .now-scroll.mode-player .play-controls .play-main,
+  .now-playing .now-scroll.mode-lyrics .play-controls .play-main,
+  .now-playing .now-scroll.mode-queue .play-controls .play-main{width:64px;height:64px}
   .now-playing .now-scroll.mode-player .volume-row,
   .now-playing .now-scroll.mode-lyrics .volume-row,
   .now-playing .now-scroll.mode-queue .volume-row{display:none}
   .now-mode-dock{width:100%;min-height:48px;margin-top:2px!important}
   .now-mode-dock button{min-height:40px}
-  .now-stage-lyrics .lyrics-line{font-size:clamp(21px,4.2vw,30px)}
+  .now-stage-lyrics .lyrics-toolbar{height:42px;padding:1px 3px 5px}
+  .now-stage-lyrics .lyrics-scroll{
+    height:calc(100% - 42px);
+    padding:24px 1px 40px;
+    mask-image:linear-gradient(transparent 0,#000 7%,#000 90%,transparent 100%);
+  }
+  .now-stage-lyrics .lyrics-leading-space{height:6%}
+  .now-stage-lyrics .lyrics-trailing-space{height:32%}
+  .now-stage-lyrics .lyrics-line{padding:6px 2px;font-size:clamp(21px,3.5vw,28px);line-height:1.16}
+  .now-stage-queue .queue-heading{padding:10px 12px 8px}
+  .now-stage-queue .queue-row{min-height:58px}
+  .now-stage-queue .queue-track{padding-top:4px;padding-bottom:4px}
+  .now-stage-queue .queue-track .art-small{width:44px;height:44px}
 }
 @media (min-width:760px) and (max-width:1099px) and (min-height:600px) and (orientation:landscape){
   .now-playing .now-scroll.mode-player .now-body,
