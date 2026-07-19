@@ -31,6 +31,7 @@ export function FavoriteButton({
       aria-pressed={favorite}
       onClick={() => {
         setPopKey((key) => key + 1);
+        if (localStorage.getItem("dmplayer-haptics") !== "false") navigator.vibrate?.(10);
         onToggle();
       }}
     >

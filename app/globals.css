@@ -1947,7 +1947,44 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 .track-sort::-webkit-scrollbar{display:none}
 .track-sort button{min-height:34px;flex:0 0 auto;padding:0 13px;border-radius:17px;background:color-mix(in srgb,var(--text) 5%,transparent);color:var(--muted);font-size:11px;font-weight:680}
 .track-sort button.active{background:var(--accent-soft);color:var(--accent)}
+.preference-card{
+  overflow:hidden;
+  border:1px solid var(--glass-line);
+  border-radius:23px;
+  background:radial-gradient(circle at 18% 0,var(--glass-inner),transparent 42%),linear-gradient(145deg,var(--glass-bg-strong),var(--glass-bg));
+  box-shadow:0 9px 28px rgba(20,16,38,.08);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+}
+.preference-row{
+  width:100%;
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  padding:12px 15px;
+  border-bottom:1px solid color-mix(in srgb,var(--glass-line) 48%,transparent);
+  text-align:left;
+}
+.preference-row:last-child{border-bottom:0}
+.preference-row>div:first-child,.preference-toggle>span:first-child{min-width:0;display:flex;flex-direction:column;gap:3px}
+.preference-row strong{font-size:14px;letter-spacing:-.012em}
+.preference-row small{color:var(--muted);font-size:10px}
+.preference-toggle{transition:background .18s ease}
+.preference-toggle:active{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.preference-toggle .switch{flex:0 0 50px;font-style:normal}
+.preference-segmented{display:flex;flex:0 0 auto;gap:3px;padding:3px;border-radius:16px;background:color-mix(in srgb,var(--text) 5%,transparent)}
+.preference-segmented button{min-width:51px;min-height:31px;padding:0 9px;border-radius:13px;color:var(--muted);font-size:10px;font-weight:700;transition:color .18s ease,background .18s ease,box-shadow .18s ease}
+.preference-segmented button.active{background:var(--surface-solid);color:var(--accent);box-shadow:0 3px 12px rgba(20,16,38,.11)}
 @media (max-width:480px){
   .playback-tool-row{padding:13px}
   .playback-rate-options button,.sleep-options button{padding:0 11px}
+  .preference-row{padding:11px 13px}
+  .preference-segmented button{min-width:45px;padding:0 7px}
+}
+@media (max-width:360px){
+  .preference-choice{align-items:stretch;flex-direction:column;gap:9px}
+  .preference-segmented{width:100%}
+  .preference-segmented button{flex:1}
 }

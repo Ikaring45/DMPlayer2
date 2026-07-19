@@ -167,6 +167,33 @@ test("album ambient background remains artwork-derived, cached, layered, and mot
   assert.match(css, /\.animated-album-background\[data-reduced-motion="true"\]\s+\.ambient-blob\{animation:none!important\}/);
 });
 
+test("device and appearance settings persist and control real player behavior", async () => {
+  const [player, engine, favorite, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/PlayerEngine.tsx"),
+    source("../app/components/FavoriteButton.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /function DevicePreferences\(\{/);
+  assert.match(player, /function AppearancePreferences\(\{/);
+  assert.match(player, /画面をスリープさせない/);
+  assert.match(player, /触覚フィードバック/);
+  assert.match(player, /背景エフェクト/);
+  assert.match(player, /dmplayer-skip-seconds/);
+  assert.match(player, /dmplayer-ambient-quality/);
+  assert.match(player, /dmplayer-keep-awake/);
+  assert.match(player, /dmplayer-haptics/);
+  assert.match(player, /wakeLock\.request\("screen"\)/);
+  assert.match(player, /quality=\{backgroundQuality\}/);
+  assert.match(engine, /currentTime \+= skipSeconds/);
+  assert.match(engine, /currentTime -= skipSeconds/);
+  assert.match(favorite, /dmplayer-haptics/);
+  assert.match(css, /\.preference-card\{/);
+  assert.match(css, /\.preference-segmented button\.active\{/);
+  assert.match(css, /\.preference-toggle:active\{/);
+});
+
 test("full player switches artwork, lyrics, and queue inside one stable animated stage", async () => {
   const [player, css] = await Promise.all([
     source("../app/PlayerApp.tsx"),
@@ -175,7 +202,7 @@ test("full player switches artwork, lyrics, and queue inside one stable animated
 
   assert.match(player, /type NowPlayingMode = "player" \| "lyrics" \| "queue"/);
   assert.match(player, /className=\{`now-playing mode-\$\{playerMode\}/);
-  assert.match(player, /<TrackAmbientBackground track=\{track\}\s*\/><header[\s\S]*?<div className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
+  assert.match(player, /<TrackAmbientBackground track=\{track\} quality=\{backgroundQuality\}\s*\/><header[\s\S]*?<div className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
   assert.match(player, /<div className="now-stage" data-mode=\{playerMode\}>/);
   assert.match(player, /id="now-stage-player"[\s\S]*?id="now-stage-lyrics"[\s\S]*?id="now-stage-queue"/);
   assert.doesNotMatch(player, /\{lyricsOpen && <LyricsPanel/);

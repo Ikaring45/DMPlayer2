@@ -253,14 +253,16 @@ export function PlayerEngine({
       }
     };
     void setSystemMetadata();
+    const savedSkipSeconds = Number(localStorage.getItem("dmplayer-skip-seconds"));
+    const skipSeconds = savedSkipSeconds === 15 || savedSkipSeconds === 30 ? savedSkipSeconds : 10;
     const actions: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
       ["play", () => setPlaying(true)],
       ["pause", () => setPlaying(false)],
       ["nexttrack", next],
       ["previoustrack", previous],
       ["seekto", (details) => { if (audioRef.current && details.seekTime != null) audioRef.current.currentTime = details.seekTime; }],
-      ["seekforward", () => { if (audioRef.current) audioRef.current.currentTime += 10; }],
-      ["seekbackward", () => { if (audioRef.current) audioRef.current.currentTime -= 10; }],
+      ["seekforward", () => { if (audioRef.current) audioRef.current.currentTime += skipSeconds; }],
+      ["seekbackward", () => { if (audioRef.current) audioRef.current.currentTime -= skipSeconds; }],
     ];
     for (const [action, handler] of actions) {
       try { navigator.mediaSession.setActionHandler(action, handler); } catch {}

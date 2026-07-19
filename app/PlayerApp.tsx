@@ -19,6 +19,7 @@ type Tab = "library" | "playlists" | "search" | "settings";
 type LibraryView = "home" | "songs" | "albums" | "album-detail" | "artists" | "artist-detail" | "recent" | "history" | "favorites";
 type TrackSort = "default" | "title" | "artist" | "album";
 type SleepTimer = { mode: "off" } | { mode: "track" } | { mode: "timer"; endsAt: number };
+type AmbientQuality = "auto" | "high" | "low";
 
 function trackBitrate(track: Track) {
   if (track.bitrate) return track.bitrate;
@@ -70,7 +71,7 @@ function TrackRow({ track, onMenu, source }: { track: Track; onMenu: (track: Tra
     holdTimerRef.current = window.setTimeout(() => {
       longPressedRef.current = true;
       onMenu(track);
-      navigator.vibrate?.(12);
+      if (localStorage.getItem("dmplayer-haptics") !== "false") navigator.vibrate?.(12);
     }, 520);
   };
   return <div className={`track-row ${active ? "active" : ""}`}><button className="track-main" onPointerDown={beginHold} onPointerUp={cancelHold} onPointerCancel={cancelHold} onPointerLeave={cancelHold} onContextMenu={(event) => { event.preventDefault(); cancelHold(); onMenu(track); }} onClick={() => { if (longPressedRef.current) { longPressedRef.current = false; return; } playTrack(track.id, source); }} aria-label={`${track.title}を再生。長押しでメニュー`}><Artwork track={track} size="small" /><span className="track-copy"><strong>{track.title}</strong><small>{track.artist || "不明なアーティスト"}{track.album ? ` · ${track.album}` : ""}</small></span>{active && <span className={`playing-bars ${playing ? "moving" : ""}`}><i /><i /><i /></span>}</button><button className="more-button" onClick={() => onMenu(track)} aria-label={`${track.title}のメニュー`}><UiIcon name="more" /></button></div>;
@@ -235,7 +236,7 @@ function TrackDetails({ track, onClose }: { track: Track; onClose: () => void })
   </section></div>;
 }
 
-function SettingsHeading({ icon, title, caption }: { icon: "sound" | "palette" | "storage" | "app" | "timer"; title: string; caption: string }) {
+function SettingsHeading({ icon, title, caption }: { icon: "sound" | "palette" | "storage" | "app" | "timer" | "controls"; title: string; caption: string }) {
   return <div className="settings-heading"><span><UiIcon name={icon} /></span><div><h2>{title}</h2><p>{caption}</p></div></div>;
 }
 
@@ -275,6 +276,66 @@ function PlaybackTools({
   </section>;
 }
 
+function DevicePreferences({
+  skipSeconds,
+  keepScreenAwake,
+  hapticsEnabled,
+  onSkipSecondsChange,
+  onKeepScreenAwakeChange,
+  onHapticsChange,
+}: {
+  skipSeconds: 10 | 15 | 30;
+  keepScreenAwake: boolean;
+  hapticsEnabled: boolean;
+  onSkipSecondsChange: (seconds: 10 | 15 | 30) => void;
+  onKeepScreenAwakeChange: (enabled: boolean) => void;
+  onHapticsChange: (enabled: boolean) => void;
+}) {
+  return <div className="preference-card">
+    <div className="preference-row preference-choice">
+      <div><strong>シーク送り</strong><small>コントロールセンターからの送り幅</small></div>
+      <div className="preference-segmented" role="group" aria-label="シーク送り秒数">
+        {([10, 15, 30] as const).map((seconds) => <button key={seconds} className={skipSeconds === seconds ? "active" : ""} aria-pressed={skipSeconds === seconds} onClick={() => onSkipSecondsChange(seconds)}>{seconds}秒</button>)}
+      </div>
+    </div>
+    <button className="preference-row preference-toggle" role="switch" aria-checked={keepScreenAwake} onClick={() => onKeepScreenAwakeChange(!keepScreenAwake)}>
+      <span><strong>画面をスリープさせない</strong><small>再生中だけ画面の自動ロックを防止</small></span>
+      <i className={`switch ${keepScreenAwake ? "on" : ""}`} aria-hidden="true"><span /></i>
+    </button>
+    <button className="preference-row preference-toggle" role="switch" aria-checked={hapticsEnabled} onClick={() => onHapticsChange(!hapticsEnabled)}>
+      <span><strong>触覚フィードバック</strong><small>長押しやお気に入り操作を振動で通知</small></span>
+      <i className={`switch ${hapticsEnabled ? "on" : ""}`} aria-hidden="true"><span /></i>
+    </button>
+  </div>;
+}
+
+function AppearancePreferences({
+  theme,
+  ambientQuality,
+  onThemeChange,
+  onAmbientQualityChange,
+}: {
+  theme: "system" | "light" | "dark";
+  ambientQuality: AmbientQuality;
+  onThemeChange: (theme: "system" | "light" | "dark") => void;
+  onAmbientQualityChange: (quality: AmbientQuality) => void;
+}) {
+  return <div className="preference-card appearance-preferences">
+    <div className="preference-row preference-choice">
+      <div><strong>テーマ</strong><small>アプリ全体の配色</small></div>
+      <div className="preference-segmented" role="group" aria-label="表示テーマ">
+        {(["system", "light", "dark"] as const).map((item) => <button className={theme === item ? "active" : ""} key={item} aria-pressed={theme === item} onClick={() => onThemeChange(item)}>{item === "system" ? "自動" : item === "light" ? "ライト" : "ダーク"}</button>)}
+      </div>
+    </div>
+    <div className="preference-row preference-choice">
+      <div><strong>背景エフェクト</strong><small>再生画面の動きと描画負荷</small></div>
+      <div className="preference-segmented" role="group" aria-label="背景エフェクト品質">
+        {(["auto", "high", "low"] as const).map((quality) => <button className={ambientQuality === quality ? "active" : ""} key={quality} aria-pressed={ambientQuality === quality} onClick={() => onAmbientQualityChange(quality)}>{quality === "auto" ? "自動" : quality === "high" ? "高" : "省電力"}</button>)}
+      </div>
+    </div>
+  </div>;
+}
+
 function MiniPlayer({ onOpen, audioRef, variant }: { onOpen: () => void; audioRef: React.RefObject<HTMLAudioElement | null>; variant: "mobile" | "desktop" }) {
   const { tracks, currentId, queue, playing, setPlaying, playTrack, next } = usePlayerStore();
   const track = tracks.find((item) => item.id === currentId);
@@ -284,7 +345,7 @@ function MiniPlayer({ onOpen, audioRef, variant }: { onOpen: () => void; audioRe
   return <div className={`mini-player mini-player-${variant}`}><div className="mini-progress" style={{ width: `${progress}%` }} /><button className="mini-main" onClick={onOpen}><Artwork track={track} size="small" /><span><strong>{track.title}</strong><small>{track.artist}</small></span></button><button className="round-control" onClick={() => playing ? setPlaying(false) : playTrack(track.id, queue)} aria-label={playing ? "一時停止" : "再生"}><PlayerControlIcon name={playing ? "pause" : "play"} /></button><button className="round-control" onClick={next} aria-label="次の曲"><PlayerControlIcon name="next" /></button></div>;
 }
 
-function TrackAmbientBackground({ track }: { track: Track }) {
+function TrackAmbientBackground({ track, quality }: { track: Track; quality: AmbientQuality }) {
   const artworkBlob = useMemo(() => {
     if (track.artwork) return track.artwork;
     if (track.artworkData) {
@@ -310,7 +371,7 @@ function TrackAmbientBackground({ track }: { track: Track }) {
       artwork={artworkUrl}
       albumKey={albumKey}
       transitionDurationMs={2800}
-      quality="auto"
+      quality={quality}
     />
   );
 }
@@ -321,14 +382,21 @@ function NowPlaying({
   onClose,
   onOpenArtist,
   audioRef,
+  ambientQuality,
   closing = false,
 }: {
   onClose: () => void;
   onOpenArtist: (artist: string) => void;
   audioRef: React.RefObject<HTMLAudioElement | null>;
+  ambientQuality?: AmbientQuality;
   closing?: boolean;
 }) {
   const store = usePlayerStore(); const track = store.tracks.find((item) => item.id === store.currentId);
+  const backgroundQuality = ambientQuality ?? (
+    typeof window === "undefined"
+      ? "auto"
+      : (["auto", "high", "low"] as const).find((quality) => quality === localStorage.getItem("dmplayer-ambient-quality")) ?? "auto"
+  );
   const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [playerMode, setPlayerMode] = useState<NowPlayingMode>("player"); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? "");
   const seekingRef = useRef(false);
   const playerRef = useRef<HTMLElement>(null);
@@ -404,7 +472,7 @@ function NowPlaying({
     .map((id, index) => ({ id, index }))
     .slice(currentQueueIndex >= 0 ? currentQueueIndex : 0);
   const upcomingCount = Math.max(0, store.queue.length - currentQueueIndex - 1);
-  return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div className={`now-scroll mode-${playerMode}`}><div className="now-body">
+  return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} quality={backgroundQuality} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div className={`now-scroll mode-${playerMode}`}><div className="now-body">
     <div className="now-stage" data-mode={playerMode}>
       <div id="now-stage-player" className={`now-stage-view now-stage-player ${playerMode === "player" ? "is-active" : ""}`} aria-hidden={playerMode !== "player"}>
         {track.midi ? <MidiStudio track={track} audioRef={audioRef} /> : <JukeboxArtwork track={track} playing={store.playing} />}
@@ -468,11 +536,16 @@ export default function PlayerApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [trackSort, setTrackSort] = useState<TrackSort>("default");
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [skipSeconds, setSkipSeconds] = useState<10 | 15 | 30>(10);
+  const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>("auto");
+  const [keepScreenAwake, setKeepScreenAwake] = useState(false);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [sleepTimer, setSleepTimer] = useState<SleepTimer>({ mode: "off" });
   const [sleepRemaining, setSleepRemaining] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const contentRef = useRef<HTMLElement>(null);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   const loadLibrary = store.load;
   useEffect(() => {
     if (fileRef.current) fileRef.current.accept = AUDIO_FILE_ACCEPT;
@@ -488,6 +561,57 @@ export default function PlayerApp() {
     const frame = requestAnimationFrame(() => setPlaybackRate(savedRate));
     return () => cancelAnimationFrame(frame);
   }, []);
+  useEffect(() => {
+    const savedSkip = Number(localStorage.getItem("dmplayer-skip-seconds"));
+    const savedQuality = localStorage.getItem("dmplayer-ambient-quality");
+    const frame = requestAnimationFrame(() => {
+      if (savedSkip === 10 || savedSkip === 15 || savedSkip === 30) setSkipSeconds(savedSkip);
+      if (savedQuality === "auto" || savedQuality === "high" || savedQuality === "low") setAmbientQuality(savedQuality);
+      setKeepScreenAwake(localStorage.getItem("dmplayer-keep-awake") === "true");
+      setHapticsEnabled(localStorage.getItem("dmplayer-haptics") !== "false");
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    const releaseWakeLock = () => {
+      const activeLock = wakeLockRef.current;
+      wakeLockRef.current = null;
+      if (activeLock) void activeLock.release().catch(() => undefined);
+    };
+    if (!keepScreenAwake || !store.playing) {
+      releaseWakeLock();
+      return;
+    }
+    const wakeLock = (navigator as Navigator & {
+      wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> };
+    }).wakeLock;
+    if (!wakeLock) return;
+    let disposed = false;
+    const acquireWakeLock = async () => {
+      if (disposed || document.visibilityState !== "visible" || wakeLockRef.current) return;
+      try {
+        const lock = await wakeLock.request("screen");
+        if (disposed) {
+          void lock.release();
+          return;
+        }
+        wakeLockRef.current = lock;
+      } catch {
+        // The browser may decline the request when the PWA is backgrounded.
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void acquireWakeLock();
+      else releaseWakeLock();
+    };
+    void acquireWakeLock();
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
+      releaseWakeLock();
+    };
+  }, [keepScreenAwake, store.playing]);
   useEffect(() => {
     if (sleepTimer.mode !== "timer") return;
     const interval = window.setInterval(() => {
@@ -562,6 +686,31 @@ export default function PlayerApp() {
     setPlaybackRate(rate);
     localStorage.setItem("dmplayer-playback-rate", String(rate));
     setNotice(`再生速度を${rate}倍にしました`);
+  };
+  const changeSkipSeconds = (seconds: 10 | 15 | 30) => {
+    setSkipSeconds(seconds);
+    localStorage.setItem("dmplayer-skip-seconds", String(seconds));
+    setNotice(`シーク送りを${seconds}秒にしました`);
+  };
+  const changeAmbientQuality = (quality: AmbientQuality) => {
+    setAmbientQuality(quality);
+    localStorage.setItem("dmplayer-ambient-quality", quality);
+    setNotice(quality === "auto" ? "背景エフェクトを端末に合わせます" : quality === "high" ? "背景エフェクトを高品質にしました" : "背景エフェクトを省電力にしました");
+  };
+  const changeKeepScreenAwake = (enabled: boolean) => {
+    const supportsWakeLock = Boolean((navigator as Navigator & { wakeLock?: unknown }).wakeLock);
+    if (enabled && !supportsWakeLock) {
+      setNotice("この端末では画面ロック防止を利用できません");
+      return;
+    }
+    setKeepScreenAwake(enabled);
+    localStorage.setItem("dmplayer-keep-awake", String(enabled));
+    setNotice(enabled ? "再生中は画面をスリープさせません" : "画面ロック防止を解除しました");
+  };
+  const changeHaptics = (enabled: boolean) => {
+    setHapticsEnabled(enabled);
+    localStorage.setItem("dmplayer-haptics", String(enabled));
+    if (enabled) navigator.vibrate?.(12);
   };
   const scheduleSleep = (minutes: number) => {
     const seconds = minutes * 60;
@@ -749,8 +898,9 @@ export default function PlayerApp() {
   const settingsContent = <div className="settings-page">
     <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
     <section className="settings-section"><SettingsHeading icon="timer" title="再生" caption="速度とスリープタイマー" /><PlaybackTools playbackRate={playbackRate} onPlaybackRateChange={changePlaybackRate} sleepTimer={sleepTimer} sleepRemaining={sleepRemaining} onSleepMinutes={scheduleSleep} onSleepAfterTrack={stopAfterCurrentTrack} onCancelSleep={cancelSleep} /></section>
+    <section className="settings-section"><SettingsHeading icon="controls" title="操作と端末" caption="シーク、画面ロック、触覚" /><DevicePreferences skipSeconds={skipSeconds} keepScreenAwake={keepScreenAwake} hapticsEnabled={hapticsEnabled} onSkipSecondsChange={changeSkipSeconds} onKeepScreenAwakeChange={changeKeepScreenAwake} onHapticsChange={changeHaptics} /></section>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
-    <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="端末と表示テーマを同期" /><div className="setting-card segmented">{(["system", "light", "dark"] as const).map((theme) => <button className={store.theme === theme ? "active" : ""} key={theme} onClick={() => store.setTheme(theme)}>{theme === "system" ? "自動" : theme === "light" ? "ライト" : "ダーク"}</button>)}</div></section>
+    <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="テーマと再生画面の描画品質" /><AppearancePreferences theme={store.theme} ambientQuality={ambientQuality} onThemeChange={store.setTheme} onAmbientQualityChange={changeAmbientQuality} /></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
     <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.4.0</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
   </div>;

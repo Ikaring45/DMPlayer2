@@ -94,7 +94,7 @@ export function PlayerControlIcon({ name }: { name: "shuffle" | "previous" | "pl
   return <svg className="player-control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3.5v-11L7 10H4Z" /><path d="M14.2 10.1a3.2 3.2 0 0 1 0 3.8" /><path d="M16.8 7a7 7 0 0 1 0 10" className={name === "volume-low" ? "volume-outer" : ""} /></svg>;
 }
 
-export type UiIconName = "play" | "next" | "artwork" | "lyrics" | "queue" | "heart" | "edit" | "refresh" | "playlist" | "info" | "trash" | "shuffle" | "back" | "up" | "down" | "more" | "sound" | "palette" | "storage" | "shield" | "app" | "add" | "search" | "close" | "expand" | "timer";
+export type UiIconName = "play" | "next" | "artwork" | "lyrics" | "queue" | "heart" | "edit" | "refresh" | "playlist" | "info" | "trash" | "shuffle" | "back" | "up" | "down" | "more" | "sound" | "palette" | "storage" | "shield" | "app" | "add" | "search" | "close" | "expand" | "timer" | "controls";
 
 export function UiIcon({ name }: { name: UiIconName }) {
   const common = { className: "ui-icon", viewBox: "0 0 24 24", "aria-hidden": true } as const;
@@ -123,5 +123,6 @@ export function UiIcon({ name }: { name: UiIconName }) {
   if (name === "close") return <svg {...common}><path d="m6 6 12 12M18 6 6 18" /></svg>;
   if (name === "expand") return <svg {...common}><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" /></svg>;
   if (name === "timer") return <svg {...common}><circle cx="12" cy="13" r="7.5" /><path d="M12 13V8.5M9 3.5h6M12 13l3 2" /></svg>;
+  if (name === "controls") return <svg {...common}><path d="M4 7h5m4 0h7M4 12h10m4 0h2M4 17h2m4 0h10" /><circle cx="11" cy="7" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="17" r="2" /></svg>;
   return <svg {...common}><circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /></svg>;
 }
