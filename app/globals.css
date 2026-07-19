@@ -1623,6 +1623,40 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .now-mode-dock button{min-height:40px}
   .now-stage-lyrics .lyrics-line{font-size:clamp(21px,4.2vw,30px)}
 }
+@media (min-width:760px) and (max-width:1099px) and (min-height:600px) and (orientation:landscape){
+  .now-playing .now-scroll.mode-player .now-body,
+  .now-playing .now-scroll.mode-lyrics .now-body,
+  .now-playing .now-scroll.mode-queue .now-body{
+    width:min(100%,900px);
+    height:100%;
+    min-height:100%!important;
+    display:grid;
+    grid-template-columns:minmax(270px,43%) minmax(330px,1fr);
+    grid-template-rows:auto auto auto auto auto;
+    column-gap:34px;
+    align-content:center;
+    padding:12px calc(22px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(22px + var(--safe-left));
+  }
+  .now-stage{
+    grid-column:1;
+    grid-row:1/6;
+    width:100%;
+    height:min(68dvh,560px);
+    align-self:center;
+  }
+  .now-info,.seek,.play-controls,.volume-row,.now-tabs{grid-column:2}
+  .now-playing .now-scroll.mode-player .now-info,
+  .now-playing .now-scroll.mode-lyrics .now-info,
+  .now-playing .now-scroll.mode-queue .now-info{margin-top:0;align-self:end}
+  .now-playing .now-scroll.mode-player .seek,
+  .now-playing .now-scroll.mode-lyrics .seek,
+  .now-playing .now-scroll.mode-queue .seek{margin-top:12px}
+  .now-playing .now-scroll.mode-player .play-controls,
+  .now-playing .now-scroll.mode-lyrics .play-controls,
+  .now-playing .now-scroll.mode-queue .play-controls{margin:9px 0}
+  .now-mode-dock{width:100%;margin-top:8px!important}
+  .now-stage-lyrics .lyrics-line{font-size:clamp(23px,3vw,31px)}
+}
 @media (max-width:390px){
   .now-playing .now-scroll.mode-player .now-body,
   .now-playing .now-scroll.mode-lyrics .now-body,
