@@ -113,7 +113,7 @@ test("full player switches artwork, lyrics, and queue inside one stable animated
   assert.match(css, /\.now-stage-queue \.queue-panel\{[\s\S]*?display:grid;[\s\S]*?grid-template-rows:auto minmax\(0,1fr\)/);
   assert.match(css, /\.now-stage-queue \.queue-list\{[\s\S]*?overflow-y:auto;[\s\S]*?overscroll-behavior:contain/);
   assert.match(css, /\.now-mode-dock\{[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-  assert.match(css, /@media \(min-width:760px\) and \(max-width:1099px\) and \(min-height:600px\) and \(orientation:landscape\)\{[\s\S]*?\.now-info\{grid-column:2;grid-row:1\}[\s\S]*?\.seek\{grid-column:2;grid-row:2\}[\s\S]*?\.play-controls\{grid-column:2;grid-row:3\}[\s\S]*?\.volume-row\{grid-column:2;grid-row:4\}[\s\S]*?\.now-tabs\{grid-column:2;grid-row:5\}/);
+  assert.match(css, /@media \(min-width:760px\) and \(max-width:1099px\) and \(min-height:600px\) and \(orientation:landscape\)\{[\s\S]*?\.now-playing \.now-scroll\.mode-lyrics \.now-info,[\s\S]*?\{grid-column:2;grid-row:1\}[\s\S]*?\.now-playing \.now-scroll\.mode-lyrics \.seek,[\s\S]*?\{grid-column:2;grid-row:2\}[\s\S]*?\.now-playing \.now-scroll\.mode-lyrics \.play-controls,[\s\S]*?\{grid-column:2;grid-row:3\}[\s\S]*?\.now-playing \.now-scroll\.mode-lyrics \.volume-row,[\s\S]*?\{grid-column:2;grid-row:4\}[\s\S]*?\.now-playing \.now-scroll\.mode-lyrics \.now-tabs,[\s\S]*?\{grid-column:2;grid-row:5\}/);
 
   assert.match(player, /className="queue-actions"[\s\S]*?<UiIcon name="up"\s*\/>[\s\S]*?<UiIcon name="down"\s*\/>[\s\S]*?<UiIcon name="close"\s*\/>/);
   assert.match(player, /const visibleQueue = store\.queue[\s\S]*?\.slice\(currentQueueIndex >= 0 \? currentQueueIndex : 0\)/);
