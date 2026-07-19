@@ -1619,7 +1619,12 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
     align-content:center;
     padding:0 calc(16px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(16px + var(--safe-left));
   }
-  .now-stage{grid-column:1;grid-row:1/5;width:100%;height:min(100%,390px)}
+  .now-stage{
+    grid-column:1;
+    grid-row:1/5;
+    width:100%;
+    height:min(390px,calc(100dvh - 74px - var(--safe-top) - var(--safe-bottom)));
+  }
   .now-stage-player .jukebox-artwork{
     width:min(100%,calc(100dvh - 104px - var(--safe-top) - var(--safe-bottom)));
     max-height:100%;
