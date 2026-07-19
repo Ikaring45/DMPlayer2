@@ -400,6 +400,7 @@ function NowPlaying({
   const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [playerMode, setPlayerMode] = useState<NowPlayingMode>("player"); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? "");
   const seekingRef = useRef(false);
   const playerRef = useRef<HTMLElement>(null);
+  const nowScrollRef = useRef<HTMLDivElement>(null);
   const dismissStartYRef = useRef(0);
   const dismissDistanceRef = useRef(0);
   const dismissStartedAtRef = useRef(0);
@@ -409,6 +410,26 @@ function NowPlaying({
   useEffect(() => () => {
     if (dismissResetTimerRef.current !== undefined) window.clearTimeout(dismissResetTimerRef.current);
   }, []);
+  useEffect(() => {
+    const player = playerRef.current;
+    const viewport = window.visualViewport;
+    const syncViewport = () => {
+      player?.style.setProperty("--player-viewport-height", `${Math.round(viewport?.height ?? window.innerHeight)}px`);
+    };
+    syncViewport();
+    viewport?.addEventListener("resize", syncViewport);
+    viewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("orientationchange", syncViewport);
+    return () => {
+      viewport?.removeEventListener("resize", syncViewport);
+      viewport?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("orientationchange", syncViewport);
+    };
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => nowScrollRef.current?.scrollTo({ top: 0 }));
+    return () => cancelAnimationFrame(frame);
+  }, [playerMode, track?.id]);
   const activeLine = track?.syncedLyrics?.reduce((index, line, i) => line.time <= time ? i : index, -1) ?? -1;
   const previewSeek = (value: number) => { seekingRef.current = true; setTime(value); };
   const commitSeek = (value: number) => {
@@ -472,7 +493,7 @@ function NowPlaying({
     .map((id, index) => ({ id, index }))
     .slice(currentQueueIndex >= 0 ? currentQueueIndex : 0);
   const upcomingCount = Math.max(0, store.queue.length - currentQueueIndex - 1);
-  return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} quality={backgroundQuality} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div className={`now-scroll mode-${playerMode}`}><div className="now-body">
+  return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} quality={backgroundQuality} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div ref={nowScrollRef} className={`now-scroll mode-${playerMode}`}><div className="now-body">
     <div className="now-stage" data-mode={playerMode}>
       <div id="now-stage-player" className={`now-stage-view now-stage-player ${playerMode === "player" ? "is-active" : ""}`} aria-hidden={playerMode !== "player"}>
         {track.midi ? <MidiStudio track={track} audioRef={audioRef} /> : <JukeboxArtwork track={track} playing={store.playing} />}

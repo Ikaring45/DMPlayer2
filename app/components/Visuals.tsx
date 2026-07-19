@@ -26,14 +26,24 @@ export function Artwork({ track, size = "medium" }: { track?: Track; size?: "sma
   const colors = artColors[hash(track?.album ?? track?.title ?? "DM") % artColors.length];
   const artwork = track?.artwork;
   const artworkUrl = useMemo(() => artwork ? URL.createObjectURL(artwork) : undefined, [artwork]);
+  const [decodedArtworkUrl, setDecodedArtworkUrl] = useState<string>();
   useEffect(() => () => { if (artworkUrl) URL.revokeObjectURL(artworkUrl); }, [artworkUrl]);
+  const artworkReady = Boolean(artworkUrl && decodedArtworkUrl === artworkUrl);
 
   return (
-    <div className={`art art-${size} ${artworkUrl ? "has-artwork" : "fallback-artwork"}`} style={{ background: `linear-gradient(145deg, ${colors[0]}, ${colors[1]})` }} aria-hidden="true">
+    <div className={`art art-${size} ${artworkUrl ? "has-artwork" : "fallback-artwork"} ${artworkReady ? "image-ready" : ""}`} style={{ background: `linear-gradient(145deg, ${colors[0]}, ${colors[1]})` }} aria-hidden="true">
       {artworkUrl ? (
         // Blob URLs are local IndexedDB artwork and cannot use Next's remote image optimizer.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={artworkUrl} alt="" />
+        <img
+          key={artworkUrl}
+          src={artworkUrl}
+          alt=""
+          onLoad={(event) => {
+            const image = event.currentTarget;
+            void image.decode().catch(() => undefined).finally(() => setDecodedArtworkUrl(artworkUrl));
+          }}
+        />
       ) : <span>{track?.title?.slice(0, 1).toUpperCase() ?? "♪"}</span>}
     </div>
   );

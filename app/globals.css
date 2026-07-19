@@ -382,15 +382,18 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
 .empty-library-glyph{width:96px;height:96px;display:grid;flex:0 0 96px;place-items:center;margin-bottom:24px;border-radius:30px;background:color-mix(in srgb,var(--accent) 12%,var(--surface-solid));color:var(--accent);box-shadow:0 18px 46px rgba(25,18,50,.12)}.empty-library-glyph .ui-icon{width:42px;height:42px}
 
 /* Crop one subpixel beyond the mask so an artwork's fallback gradient cannot form a colored rim. */
-.art.has-artwork{position:relative;border:0!important;outline:0!important;background:#0d0e14!important}
+.art.has-artwork{position:relative;border:0!important;outline:0!important}
 .art.has-artwork img{
   position:absolute;
   inset:-1px;
   width:calc(100% + 2px);
   height:calc(100% + 2px);
   max-width:none;
+  opacity:0;
   transform:translateZ(0);
+  transition:opacity .18s ease;
 }
+.art.has-artwork.image-ready img{opacity:1}
 .art::before,.art::after{display:none!important}
 .jukebox-artwork,.ipad-art,.feature-art,.mini-main .art{border:0!important;outline:0!important}
 .ipad-art{background:transparent;box-shadow:none}
@@ -1847,6 +1850,114 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   .now-stage-queue .queue-heading p{display:none}
   .now-stage-queue .queue-row{min-height:52px}
   .now-stage-queue .queue-track .art-small{width:40px;height:40px}
+}
+
+/* Phone full player: use the actual visual viewport and keep every primary
+   control in one fixed composition. This avoids Android Chrome preserving an
+   outer scroll offset when its address bar expands, collapses, or a track
+   changes. Lyrics and queue keep their own internal scroll regions. */
+@media (orientation:portrait) and (max-width:540px){
+  .now-playing{
+    top:0;
+    right:0;
+    bottom:auto;
+    left:0;
+    width:100%;
+    height:var(--player-viewport-height,100dvh);
+    max-height:var(--player-viewport-height,100dvh);
+  }
+  .now-playing>header{
+    height:calc(64px + var(--safe-top));
+    padding:calc(var(--safe-top) + 10px) 10px 0;
+  }
+  .now-playing>header::before{top:calc(var(--safe-top) + 7px)}
+  .now-playing>header .now-header-album{left:56px;right:56px;font-size:10px}
+  .now-playing .now-scroll,
+  .now-playing .now-scroll.mode-player,
+  .now-playing .now-scroll.mode-lyrics,
+  .now-playing .now-scroll.mode-queue{
+    inset:calc(64px + var(--safe-top)) 0 0;
+    overflow:hidden;
+    scroll-behavior:auto;
+  }
+  .now-playing .now-scroll.mode-player .now-body,
+  .now-playing .now-scroll.mode-lyrics .now-body,
+  .now-playing .now-scroll.mode-queue .now-body{
+    width:100%;
+    height:100%;
+    min-height:0!important;
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) auto auto auto auto auto;
+    align-content:stretch;
+    align-items:center;
+    justify-content:normal;
+    overflow:hidden;
+    padding:2px 20px calc(8px + var(--safe-bottom));
+  }
+  .now-stage{
+    width:100%;
+    height:100%!important;
+    min-height:0;
+    max-height:none;
+    align-self:stretch;
+  }
+  .now-stage-player .jukebox-artwork{
+    width:clamp(176px,min(76vw,calc(var(--player-viewport-height,100dvh) - 330px)),420px);
+    max-width:100%;
+    max-height:100%;
+  }
+  .now-playing .now-scroll.mode-player .now-info,
+  .now-playing .now-scroll.mode-lyrics .now-info,
+  .now-playing .now-scroll.mode-queue .now-info{
+    min-height:48px;
+    margin:7px 0 0;
+  }
+  .now-playing .now-scroll.mode-player .now-info h1,
+  .now-playing .now-scroll.mode-lyrics .now-info h1,
+  .now-playing .now-scroll.mode-queue .now-info h1{margin-bottom:2px;font-size:20px}
+  .now-playing .now-scroll.mode-player .now-info p,
+  .now-playing .now-scroll.mode-lyrics .now-info p,
+  .now-playing .now-scroll.mode-queue .now-info p{font-size:11px}
+  .now-playing .now-scroll.mode-player .seek,
+  .now-playing .now-scroll.mode-lyrics .seek,
+  .now-playing .now-scroll.mode-queue .seek{margin-top:3px}
+  .now-playing .now-scroll.mode-player .seek input,
+  .now-playing .now-scroll.mode-lyrics .seek input,
+  .now-playing .now-scroll.mode-queue .seek input{height:28px}
+  .now-playing .now-scroll.mode-player .play-controls,
+  .now-playing .now-scroll.mode-lyrics .play-controls,
+  .now-playing .now-scroll.mode-queue .play-controls{margin:3px 0}
+  .now-playing .now-scroll.mode-player .play-controls button,
+  .now-playing .now-scroll.mode-lyrics .play-controls button,
+  .now-playing .now-scroll.mode-queue .play-controls button{width:44px;height:44px}
+  .now-playing .now-scroll.mode-player .play-controls .play-main,
+  .now-playing .now-scroll.mode-lyrics .play-controls .play-main,
+  .now-playing .now-scroll.mode-queue .play-controls .play-main{width:62px;height:62px}
+  .now-playing .now-scroll.mode-player .volume-row,
+  .now-playing .now-scroll.mode-lyrics .volume-row,
+  .now-playing .now-scroll.mode-queue .volume-row{height:30px}
+  .now-mode-dock{
+    width:100%;
+    min-height:48px;
+    margin-top:2px!important;
+  }
+  .now-mode-dock button{min-height:40px}
+  .now-stage-lyrics .lyrics-toolbar{height:44px;padding-bottom:5px}
+  .now-stage-lyrics .lyrics-scroll{height:calc(100% - 44px);padding:26px 1px 38px}
+  .now-stage-lyrics .lyrics-leading-space{height:8%}
+  .now-stage-lyrics .lyrics-trailing-space{height:34%}
+  .now-stage-lyrics .lyrics-line{padding:7px 2px;font-size:clamp(22px,7vw,28px);line-height:1.17}
+}
+@media (orientation:portrait) and (max-width:540px) and (max-height:680px){
+  .now-playing .now-scroll.mode-player .volume-row,
+  .now-playing .now-scroll.mode-lyrics .volume-row,
+  .now-playing .now-scroll.mode-queue .volume-row{display:none}
+  .now-stage-player .jukebox-artwork{
+    width:clamp(168px,min(72vw,calc(var(--player-viewport-height,100dvh) - 286px)),320px);
+  }
+  .now-mode-dock{min-height:44px;margin-top:0!important}
+  .now-mode-dock button{min-height:36px}
 }
 
 /* Collapsible desktop sidebar. The compact rail keeps primary navigation available. */

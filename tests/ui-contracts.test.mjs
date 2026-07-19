@@ -194,6 +194,28 @@ test("device and appearance settings persist and control real player behavior", 
   assert.match(css, /\.preference-toggle:active\{/);
 });
 
+test("phone full player stays inside Android visual viewport without retaining outer scroll", async () => {
+  const [player, visuals, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/Visuals.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /const viewport = window\.visualViewport/);
+  assert.match(player, /--player-viewport-height/);
+  assert.match(player, /viewport\?\.addEventListener\("resize", syncViewport\)/);
+  assert.match(player, /nowScrollRef\.current\?\.scrollTo\(\{ top: 0 \}\)/);
+  assert.match(player, /\[playerMode, track\?\.id\]/);
+  assert.match(visuals, /image\.decode\(\)/);
+  assert.match(visuals, /decodedArtworkUrl === artworkUrl/);
+  assert.match(css, /\.art\.has-artwork\.image-ready img\{opacity:1\}/);
+  assert.match(css, /@media \(orientation:portrait\) and \(max-width:540px\)\{/);
+  assert.match(css, /height:var\(--player-viewport-height,100dvh\)/);
+  assert.match(css, /grid-template-rows:minmax\(0,1fr\) auto auto auto auto auto/);
+  assert.match(css, /\.now-playing \.now-scroll\.mode-player,[\s\S]*?overflow:hidden/);
+  assert.match(css, /calc\(var\(--player-viewport-height,100dvh\) - 330px\)/);
+});
+
 test("full player switches artwork, lyrics, and queue inside one stable animated stage", async () => {
   const [player, css] = await Promise.all([
     source("../app/PlayerApp.tsx"),
@@ -202,7 +224,7 @@ test("full player switches artwork, lyrics, and queue inside one stable animated
 
   assert.match(player, /type NowPlayingMode = "player" \| "lyrics" \| "queue"/);
   assert.match(player, /className=\{`now-playing mode-\$\{playerMode\}/);
-  assert.match(player, /<TrackAmbientBackground track=\{track\} quality=\{backgroundQuality\}\s*\/><header[\s\S]*?<div className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
+  assert.match(player, /<TrackAmbientBackground track=\{track\} quality=\{backgroundQuality\}\s*\/><header[\s\S]*?<div ref=\{nowScrollRef\} className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
   assert.match(player, /<div className="now-stage" data-mode=\{playerMode\}>/);
   assert.match(player, /id="now-stage-player"[\s\S]*?id="now-stage-lyrics"[\s\S]*?id="now-stage-queue"/);
   assert.doesNotMatch(player, /\{lyricsOpen && <LyricsPanel/);
