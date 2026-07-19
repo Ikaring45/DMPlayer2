@@ -5,7 +5,17 @@ import { getAudioFormatLabel } from "../lib/audio-formats";
 import * as db from "../lib/db";
 import { usePlayerStore } from "../store";
 
-export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudioElement | null> }) {
+export function PlayerEngine({
+  audioRef,
+  playbackRate = 1,
+  stopAfterTrack = false,
+  onStopAfterTrack,
+}: {
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  playbackRate?: number;
+  stopAfterTrack?: boolean;
+  onStopAfterTrack?: () => void;
+}) {
   const { tracks, currentId, volume, playing, repeat, eqEnabled, eqBands, setPlaying, updateTrack, next, previous } = usePlayerStore();
   const current = tracks.find((track) => track.id === currentId);
   const lastId = useRef<string | undefined>(undefined);
@@ -196,6 +206,10 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
   }, [eqBands, eqEnabled]);
 
   useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = playbackRate;
+  }, [audioRef, currentId, playbackRate]);
+
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (!currentId) {
@@ -320,6 +334,11 @@ export function PlayerEngine({ audioRef }: { audioRef: React.RefObject<HTMLAudio
       }}
       onEnded={() => {
         stopVisualizer();
+        if (stopAfterTrack) {
+          setPlaying(false);
+          onStopAfterTrack?.();
+          return;
+        }
         if (repeat === "one" && audioRef.current) {
           audioRef.current.currentTime = 0;
           void audioRef.current.play();

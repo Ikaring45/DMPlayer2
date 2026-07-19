@@ -66,6 +66,36 @@ test("brand artwork is reserved for the app shell instead of repeated page decor
   assert.match(css, /\.empty-library-glyph\{/);
 });
 
+test("playback utilities provide speed, sleep timer, and sortable library views", async () => {
+  const [player, engine, visuals, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/PlayerEngine.tsx"),
+    source("../app/components/Visuals.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /type TrackSort = "default" \| "title" \| "artist" \| "album"/);
+  assert.match(player, /function sortTracks\(/);
+  assert.match(player, /className="track-sort"[\s\S]*?aria-label="曲の並び順"/);
+  assert.match(player, /\["default", "既定"\][\s\S]*?\["title", "曲名"\][\s\S]*?\["artist", "アーティスト"\][\s\S]*?\["album", "アルバム"\]/);
+  assert.match(player, /function PlaybackTools\(/);
+  assert.match(player, /dmplayer-playback-rate/);
+  assert.match(player, /\[15,\s*30,\s*60\]/);
+  assert.match(player, /曲の終了/);
+  assert.match(player, /sleepTimer\.mode === "track"/);
+  assert.match(player, /<PlayerEngine audioRef=\{audioRef\} playbackRate=\{playbackRate\} stopAfterTrack=\{sleepTimer\.mode === "track"\}/);
+
+  assert.match(engine, /playbackRate\?: number/);
+  assert.match(engine, /audioRef\.current\.playbackRate = playbackRate/);
+  assert.match(engine, /if \(stopAfterTrack\)[\s\S]*?setPlaying\(false\)[\s\S]*?onStopAfterTrack\?\.\(\)/);
+  assert.match(visuals, /name === "timer"/);
+
+  assert.match(css, /\.playback-tools\{/);
+  assert.match(css, /\.playback-rate-options/);
+  assert.match(css, /\.sleep-options/);
+  assert.match(css, /\.track-sort\{/);
+});
+
 test("full player artist and favorite controls retain their interactive routes", async () => {
   const [player, favorite, tablet] = await Promise.all([
     source("../app/PlayerApp.tsx"),

@@ -17,6 +17,8 @@ import type { Track } from "./types";
 
 type Tab = "library" | "playlists" | "search" | "settings";
 type LibraryView = "home" | "songs" | "albums" | "album-detail" | "artists" | "artist-detail" | "recent" | "history" | "favorites";
+type TrackSort = "default" | "title" | "artist" | "album";
+type SleepTimer = { mode: "off" } | { mode: "track" } | { mode: "timer"; endsAt: number };
 
 function trackBitrate(track: Track) {
   if (track.bitrate) return track.bitrate;
@@ -29,6 +31,21 @@ function formatBytes(value: number) {
   return value >= 1024 * 1024
     ? `${(value / 1024 / 1024).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} MB`
     : `${Math.max(1, Math.round(value / 1024))} KB`;
+}
+
+function sortTracks(tracks: Track[], sort: TrackSort) {
+  if (sort === "default") return tracks;
+  return [...tracks].sort((a, b) => {
+    const left = sort === "title" ? a.title : sort === "artist" ? a.artist || "" : a.album || "";
+    const right = sort === "title" ? b.title : sort === "artist" ? b.artist || "" : b.album || "";
+    return left.localeCompare(right, "ja", { numeric: true, sensitivity: "base" });
+  });
+}
+
+function formatCountdown(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function EmptyLibrary({ onAdd }: { onAdd: () => void }) {
@@ -218,8 +235,44 @@ function TrackDetails({ track, onClose }: { track: Track; onClose: () => void })
   </section></div>;
 }
 
-function SettingsHeading({ icon, title, caption }: { icon: "sound" | "palette" | "storage" | "app"; title: string; caption: string }) {
+function SettingsHeading({ icon, title, caption }: { icon: "sound" | "palette" | "storage" | "app" | "timer"; title: string; caption: string }) {
   return <div className="settings-heading"><span><UiIcon name={icon} /></span><div><h2>{title}</h2><p>{caption}</p></div></div>;
+}
+
+function PlaybackTools({
+  playbackRate,
+  onPlaybackRateChange,
+  sleepTimer,
+  sleepRemaining,
+  onSleepMinutes,
+  onSleepAfterTrack,
+  onCancelSleep,
+}: {
+  playbackRate: number;
+  onPlaybackRateChange: (rate: number) => void;
+  sleepTimer: SleepTimer;
+  sleepRemaining: number;
+  onSleepMinutes: (minutes: number) => void;
+  onSleepAfterTrack: () => void;
+  onCancelSleep: () => void;
+}) {
+  const rates = [0.75, 1, 1.25, 1.5, 2];
+  return <section className="playback-tools">
+    <div className="playback-tool-row">
+      <div><strong>再生速度</strong><small>{playbackRate}×</small></div>
+      <div className="playback-rate-options" role="group" aria-label="再生速度">
+        {rates.map((rate) => <button key={rate} className={playbackRate === rate ? "active" : ""} aria-pressed={playbackRate === rate} onClick={() => onPlaybackRateChange(rate)}>{rate}×</button>)}
+      </div>
+    </div>
+    <div className="playback-tool-row sleep-tool">
+      <div><strong>スリープタイマー</strong><small>{sleepTimer.mode === "timer" ? `あと ${formatCountdown(sleepRemaining)}` : sleepTimer.mode === "track" ? "曲の終了時に停止" : "オフ"}</small></div>
+      <div className="sleep-options" role="group" aria-label="スリープタイマー">
+        {[15, 30, 60].map((minutes) => <button key={minutes} onClick={() => onSleepMinutes(minutes)}>{minutes}分</button>)}
+        <button className={sleepTimer.mode === "track" ? "active" : ""} aria-pressed={sleepTimer.mode === "track"} onClick={onSleepAfterTrack}>曲の終了</button>
+        {sleepTimer.mode !== "off" && <button className="sleep-cancel" onClick={onCancelSleep}>解除</button>}
+      </div>
+    </div>
+  </section>;
 }
 
 function MiniPlayer({ onOpen, audioRef, variant }: { onOpen: () => void; audioRef: React.RefObject<HTMLAudioElement | null>; variant: "mobile" | "desktop" }) {
@@ -413,6 +466,10 @@ export default function PlayerApp() {
   const [adding, setAdding] = useState(false);
   const [smoothScrollRequest, setSmoothScrollRequest] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [trackSort, setTrackSort] = useState<TrackSort>("default");
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [sleepTimer, setSleepTimer] = useState<SleepTimer>({ mode: "off" });
+  const [sleepRemaining, setSleepRemaining] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -425,6 +482,25 @@ export default function PlayerApp() {
     const frame = requestAnimationFrame(() => setSidebarCollapsed(true));
     return () => cancelAnimationFrame(frame);
   }, []);
+  useEffect(() => {
+    const savedRate = Number(localStorage.getItem("dmplayer-playback-rate"));
+    if (![0.75, 1, 1.25, 1.5, 2].includes(savedRate)) return;
+    const frame = requestAnimationFrame(() => setPlaybackRate(savedRate));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (sleepTimer.mode !== "timer") return;
+    const interval = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((sleepTimer.endsAt - Date.now()) / 1000));
+      setSleepRemaining(remaining);
+      if (remaining > 0) return;
+      window.clearInterval(interval);
+      usePlayerStore.getState().setPlaying(false);
+      setSleepTimer({ mode: "off" });
+      setNotice("スリープタイマーで停止しました");
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [sleepTimer]);
   useEffect(() => {
     void loadLibrary();
   }, [loadLibrary]);
@@ -482,6 +558,32 @@ export default function PlayerApp() {
     if (!smoothScrollRequest) return;
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [smoothScrollRequest]);
+  const changePlaybackRate = (rate: number) => {
+    setPlaybackRate(rate);
+    localStorage.setItem("dmplayer-playback-rate", String(rate));
+    setNotice(`再生速度を${rate}倍にしました`);
+  };
+  const scheduleSleep = (minutes: number) => {
+    const seconds = minutes * 60;
+    setSleepTimer({ mode: "timer", endsAt: Date.now() + seconds * 1000 });
+    setSleepRemaining(seconds);
+    setNotice(`${minutes}分後に停止します`);
+  };
+  const stopAfterCurrentTrack = () => {
+    setSleepTimer({ mode: "track" });
+    setSleepRemaining(0);
+    setNotice("現在の曲が終わったら停止します");
+  };
+  const cancelSleep = () => {
+    setSleepTimer({ mode: "off" });
+    setSleepRemaining(0);
+    setNotice("スリープタイマーを解除しました");
+  };
+  const completeTrackSleep = () => {
+    setSleepTimer({ mode: "off" });
+    setSleepRemaining(0);
+    setNotice("曲の終了時に停止しました");
+  };
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     setAdding(true);
@@ -588,7 +690,7 @@ export default function PlayerApp() {
     setStoragePersistent(granted);
     setNotice(granted ? "ストレージが保護されました。" : "ストレージ保護は許可されませんでした。");
   };
-  const openPicker = () => fileRef.current?.click(); const filtered = store.tracks.filter((track) => `${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(query.toLowerCase())); const recent = [...store.tracks].sort((a, b) => b.createdAt - a.createdAt); const history = store.tracks.filter((track) => track.lastPlayedAt).sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0)); const favorites = store.tracks.filter((track) => track.favorite); const mostPlayed = [...store.tracks].filter((track) => track.playCount > 0).sort((a, b) => b.playCount - a.playCount); const albums = [...new Set(store.tracks.map((track) => track.album || "不明なアルバム"))]; const artists = [...new Set(store.tracks.map((track) => track.artist || "不明なアーティスト"))]; const source = view === "favorites" ? favorites : view === "recent" ? recent : view === "history" ? history : store.tracks; const current = store.tracks.find((track) => track.id === store.currentId);
+  const openPicker = () => fileRef.current?.click(); const filtered = store.tracks.filter((track) => `${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(query.toLowerCase())); const recent = [...store.tracks].sort((a, b) => b.createdAt - a.createdAt); const history = store.tracks.filter((track) => track.lastPlayedAt).sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0)); const favorites = store.tracks.filter((track) => track.favorite); const mostPlayed = [...store.tracks].filter((track) => track.playCount > 0).sort((a, b) => b.playCount - a.playCount); const albums = [...new Set(store.tracks.map((track) => track.album || "不明なアルバム"))]; const artists = [...new Set(store.tracks.map((track) => track.artist || "不明なアーティスト"))]; const source = view === "favorites" ? favorites : view === "recent" ? recent : view === "history" ? history : store.tracks; const visibleSource = sortTracks(source, trackSort); const current = store.tracks.find((track) => track.id === store.currentId);
 
   const libraryContent = () => {
     if (!store.tracks.length) return <EmptyLibrary onAdd={openPicker} />;
@@ -600,7 +702,7 @@ export default function PlayerApp() {
       const artistTracks = store.tracks.filter((track) => (track.artist || "不明なアーティスト") === selectedArtist);
       return <ArtistDetail artist={selectedArtist} tracks={artistTracks} onBack={() => { setSelectedArtist(undefined); navigateView("artists", "back"); }} onMenu={setMenuTrack} onOpenAlbum={(album) => { setSelectedArtist(undefined); setSelectedAlbum(album); navigateView("album-detail"); }} />;
     }
-    if (view !== "home") return <><header className="content-header"><button className="back icon-back" onClick={() => navigateView("home", "back")}><UiIcon name="back" />ライブラリ</button><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><h1>{({ songs: "曲", albums: "アルバム", artists: "アーティスト", recent: "最近追加した項目", history: "最近再生した曲", favorites: "お気に入り", home: "ライブラリ", "album-detail": "アルバム", "artist-detail": "アーティスト" } as const)[view]}</h1>{view === "albums" ? <div className="album-grid">{albums.map((album) => { const track = store.tracks.find((item) => (item.album || "不明なアルバム") === album); return <button key={album} onClick={() => { setSelectedArtist(undefined); setSelectedAlbum(album); navigateView("album-detail"); }}><Artwork track={track} /><strong>{album}</strong><small>{track?.artist}</small></button>; })}</div> : view === "artists" ? <div className="artist-list">{artists.map((artist) => <button key={artist} onClick={() => openArtistDetail(artist)}><span>{artist.slice(0, 1)}</span><strong>{artist}</strong><small>{store.tracks.filter((track) => (track.artist || "不明なアーティスト") === artist).length}曲</small><b>›</b></button>)}</div> : <div className="track-list">{source.map((track) => <TrackRow key={track.id} track={track} source={source.map((item) => item.id)} onMenu={setMenuTrack} />)}{view === "history" && !source.length && <div className="simple-empty"><h2>再生履歴はありません</h2><p>曲を再生すると、ここからすぐに戻れます。</p></div>}</div>}</>;
+    if (view !== "home") return <><header className="content-header"><button className="back icon-back" onClick={() => navigateView("home", "back")}><UiIcon name="back" />ライブラリ</button><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><h1>{({ songs: "曲", albums: "アルバム", artists: "アーティスト", recent: "最近追加した項目", history: "最近再生した曲", favorites: "お気に入り", home: "ライブラリ", "album-detail": "アルバム", "artist-detail": "アーティスト" } as const)[view]}</h1>{view === "albums" ? <div className="album-grid">{albums.map((album) => { const track = store.tracks.find((item) => (item.album || "不明なアルバム") === album); return <button key={album} onClick={() => { setSelectedArtist(undefined); setSelectedAlbum(album); navigateView("album-detail"); }}><Artwork track={track} /><strong>{album}</strong><small>{track?.artist}</small></button>; })}</div> : view === "artists" ? <div className="artist-list">{artists.map((artist) => <button key={artist} onClick={() => openArtistDetail(artist)}><span>{artist.slice(0, 1)}</span><strong>{artist}</strong><small>{store.tracks.filter((track) => (track.artist || "不明なアーティスト") === artist).length}曲</small><b>›</b></button>)}</div> : <><div className="track-sort" role="group" aria-label="曲の並び順">{([["default", "既定"], ["title", "曲名"], ["artist", "アーティスト"], ["album", "アルバム"]] as const).map(([id, label]) => <button key={id} className={trackSort === id ? "active" : ""} aria-pressed={trackSort === id} onClick={() => setTrackSort(id)}>{label}</button>)}</div><div className="track-list">{visibleSource.map((track) => <TrackRow key={track.id} track={track} source={visibleSource.map((item) => item.id)} onMenu={setMenuTrack} />)}{view === "history" && !visibleSource.length && <div className="simple-empty"><h2>再生履歴はありません</h2><p>曲を再生すると、ここからすぐに戻れます。</p></div>}</div></>}</>;
     const featured = current || recent[0];
     const replay = mostPlayed.length ? mostPlayed : history;
     return <>
@@ -646,13 +748,14 @@ export default function PlayerApp() {
   const searchContent = <><header className="content-header header-actions-only"><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><div className="page-heading"><small>FIND YOUR MUSIC</small><h1>検索</h1></div><div className="search-box"><span><UiIcon name="search" /></span><input placeholder="曲、アーティスト、アルバム" value={query} onChange={(event) => setQuery(event.target.value)} />{query && <button aria-label="検索を消去" onClick={() => setQuery("")}><UiIcon name="close" /></button>}</div>{query ? <div className="track-list search-results">{filtered.map((track) => <TrackRow key={track.id} track={track} onMenu={setMenuTrack} />)}{!filtered.length && <div className="simple-empty"><h2>見つかりませんでした</h2><p>別のキーワードで検索してください。</p></div>}</div> : <div className="search-hint"><UiIcon name="search" /><p>ライブラリ内を検索</p></div>}</>;
   const settingsContent = <div className="settings-page">
     <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
+    <section className="settings-section"><SettingsHeading icon="timer" title="再生" caption="速度とスリープタイマー" /><PlaybackTools playbackRate={playbackRate} onPlaybackRateChange={changePlaybackRate} sleepTimer={sleepTimer} sleepRemaining={sleepRemaining} onSleepMinutes={scheduleSleep} onSleepAfterTrack={stopAfterCurrentTrack} onCancelSleep={cancelSleep} /></section>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
     <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="端末と表示テーマを同期" /><div className="setting-card segmented">{(["system", "light", "dark"] as const).map((theme) => <button className={store.theme === theme ? "active" : ""} key={theme} onClick={() => store.setTheme(theme)}>{theme === "system" ? "自動" : theme === "light" ? "ライト" : "ダーク"}</button>)}</div></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
     <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.4.0</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
   </div>;
 
-  return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
+  return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} playbackRate={playbackRate} stopAfterTrack={sleepTimer.mode === "track"} onStopAfterTrack={completeTrackSleep} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
     {menuTrack && <div className="sheet-backdrop" onClick={() => setMenuTrack(undefined)}><section className="action-sheet" role="dialog" aria-modal="true" aria-label={`${menuTrack.title}の操作メニュー`} onClick={(event) => event.stopPropagation()}>
       <div className="sheet-handle" />
       <div className="sheet-track"><Artwork track={menuTrack} size="small" /><div><strong>{menuTrack.title}</strong><small>{menuTrack.artist} · {trackBitrate(menuTrack) ? `${Math.round(trackBitrate(menuTrack)! / 1000)} kbps` : menuTrack.codec || "Audio"}</small></div></div>
