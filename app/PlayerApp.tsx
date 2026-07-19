@@ -91,6 +91,112 @@ function CollectionDetail({
   </section>;
 }
 
+function ArtistDetail({
+  artist,
+  tracks,
+  onBack,
+  onMenu,
+  onOpenAlbum,
+}: {
+  artist: string;
+  tracks: Track[];
+  onBack: () => void;
+  onMenu: (track: Track) => void;
+  onOpenAlbum: (album: string) => void;
+}) {
+  const store = usePlayerStore();
+  const ids = tracks.map((track) => track.id);
+  const totalDuration = tracks.reduce((sum, track) => sum + (track.duration ?? 0), 0);
+  const favoriteCount = tracks.filter((track) => track.favorite).length;
+  const totalPlays = tracks.reduce((sum, track) => sum + (track.playCount ?? 0), 0);
+  const popularTracks = [...tracks]
+    .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0) || (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0) || b.createdAt - a.createdAt)
+    .slice(0, 5);
+  const albumGroups = Array.from(tracks.reduce((groups, track) => {
+    const name = track.album || "不明なアルバム";
+    const current = groups.get(name) ?? [];
+    current.push(track);
+    groups.set(name, current);
+    return groups;
+  }, new Map<string, Track[]>())).map(([name, albumTracks]) => ({
+    name,
+    tracks: albumTracks,
+    artworkTrack: albumTracks.find((track) => track.artwork) ?? albumTracks[0],
+    duration: albumTracks.reduce((sum, track) => sum + (track.duration ?? 0), 0),
+    newest: Math.max(...albumTracks.map((track) => track.createdAt)),
+  })).sort((a, b) => b.newest - a.newest);
+  const heroTrack = tracks.find((track) => track.artwork) ?? popularTracks[0] ?? tracks[0];
+  const playAll = () => {
+    if (tracks[0]) store.playTrack(tracks[0].id, ids);
+  };
+  const shuffleAll = () => {
+    if (!tracks.length) return;
+    if (!store.shuffle) store.toggleShuffle();
+    store.playTrack(tracks[Math.floor(Math.random() * tracks.length)].id, ids);
+  };
+
+  return <section className="artist-detail">
+    <header className="artist-detail-nav">
+      <button className="artist-back" onClick={onBack}><UiIcon name="back" /><span>アーティスト</span></button>
+      <span className="artist-nav-title">{artist}</span>
+      <span aria-hidden="true" />
+    </header>
+
+    <div className="artist-hero">
+      <div className="artist-hero-backdrop" aria-hidden="true"><Artwork track={heroTrack} size="medium" /></div>
+      <div className="artist-visual">
+        <span className="artist-vinyl" aria-hidden="true" />
+        <div className="artist-portrait"><Artwork track={heroTrack} size="medium" /></div>
+        {albumGroups.slice(1, 3).map((album, index) => <div className={`artist-floating-cover artist-floating-cover-${index + 1}`} key={album.name} aria-hidden="true"><Artwork track={album.artworkTrack} size="small" /></div>)}
+      </div>
+      <div className="artist-hero-copy">
+        <small>ARTIST</small>
+        <h1>{artist}</h1>
+        <p>{albumGroups.length}アルバム <i /> {tracks.length}曲 <i /> {formatTime(totalDuration)}</p>
+        <div className="artist-hero-actions">
+          <button className="artist-primary-action" disabled={!tracks.length} onClick={playAll}><UiIcon name="play" /><span>再生</span></button>
+          <button className="artist-secondary-action" disabled={!tracks.length} onClick={shuffleAll}><UiIcon name="shuffle" /><span>シャッフル</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div className="artist-content-grid">
+      <section className="artist-popular">
+        <header className="artist-section-heading"><div><small>TOP TRACKS</small><h2>人気の曲</h2></div><span>{Math.min(5, tracks.length)}曲</span></header>
+        <div className="artist-ranked-list">
+          {popularTracks.map((track, index) => <div className="artist-ranked-row" key={track.id}><span className="artist-rank">{String(index + 1).padStart(2, "0")}</span><TrackRow track={track} source={ids} onMenu={onMenu} /></div>)}
+        </div>
+      </section>
+
+      <aside className="artist-profile-card">
+        <div className="artist-profile-heading"><span>{artist.slice(0, 1).toUpperCase()}</span><div><small>IN YOUR LIBRARY</small><strong>{artist}</strong></div></div>
+        <div className="artist-stats">
+          <div><strong>{tracks.length}</strong><span>曲</span></div>
+          <div><strong>{albumGroups.length}</strong><span>アルバム</span></div>
+          <div><strong>{favoriteCount}</strong><span>お気に入り</span></div>
+        </div>
+        <p>{totalPlays > 0 ? `この端末で合計${totalPlays}回再生しています。` : "この端末に保存した音楽を、アーティストごとにまとめています。"}</p>
+      </aside>
+    </div>
+
+    <section className="artist-albums">
+      <header className="artist-section-heading"><div><small>DISCOGRAPHY</small><h2>アルバム</h2></div><span>{albumGroups.length}作品</span></header>
+      <div className="artist-album-grid">
+        {albumGroups.map((album) => <button key={album.name} onClick={() => onOpenAlbum(album.name)}>
+          <span className="artist-album-art"><Artwork track={album.artworkTrack} size="medium" /><i><UiIcon name="play" /></i></span>
+          <strong>{album.name}</strong>
+          <small>{album.tracks.length}曲 · {formatTime(album.duration)}</small>
+        </button>)}
+      </div>
+    </section>
+
+    {tracks.length > popularTracks.length && <section className="artist-all-tracks">
+      <header className="artist-section-heading"><div><small>COMPLETE CATALOG</small><h2>すべての曲</h2></div><span>{tracks.length}曲</span></header>
+      <div className="track-list">{tracks.map((track) => <TrackRow key={track.id} track={track} source={ids} onMenu={onMenu} />)}</div>
+    </section>}
+  </section>;
+}
+
 function TrackDetails({ track, onClose }: { track: Track; onClose: () => void }) {
   const bitrate = trackBitrate(track);
   const rows = [
@@ -472,7 +578,7 @@ export default function PlayerApp() {
     }
     if (view === "artist-detail" && selectedArtist) {
       const artistTracks = store.tracks.filter((track) => (track.artist || "不明なアーティスト") === selectedArtist);
-      return <CollectionDetail kind="artist" title={selectedArtist} subtitle="アーティスト" tracks={artistTracks} onBack={() => { setSelectedArtist(undefined); navigateView("artists", "back"); }} onMenu={setMenuTrack} />;
+      return <ArtistDetail artist={selectedArtist} tracks={artistTracks} onBack={() => { setSelectedArtist(undefined); navigateView("artists", "back"); }} onMenu={setMenuTrack} onOpenAlbum={(album) => { setSelectedArtist(undefined); setSelectedAlbum(album); navigateView("album-detail"); }} />;
     }
     if (view !== "home") return <><header className="content-header"><button className="back icon-back" onClick={() => navigateView("home", "back")}><UiIcon name="back" />ライブラリ</button><button className="circle-add" aria-label="音楽を追加" onClick={openPicker}><UiIcon name="add" /></button></header><h1>{({ songs: "曲", albums: "アルバム", artists: "アーティスト", recent: "最近追加した項目", history: "最近再生した曲", favorites: "お気に入り", home: "ライブラリ", "album-detail": "アルバム", "artist-detail": "アーティスト" } as const)[view]}</h1>{view === "albums" ? <div className="album-grid">{albums.map((album) => { const track = store.tracks.find((item) => (item.album || "不明なアルバム") === album); return <button key={album} onClick={() => { setSelectedArtist(undefined); setSelectedAlbum(album); navigateView("album-detail"); }}><Artwork track={track} /><strong>{album}</strong><small>{track?.artist}</small></button>; })}</div> : view === "artists" ? <div className="artist-list">{artists.map((artist) => <button key={artist} onClick={() => openArtistDetail(artist)}><span>{artist.slice(0, 1)}</span><strong>{artist}</strong><small>{store.tracks.filter((track) => (track.artist || "不明なアーティスト") === artist).length}曲</small><b>›</b></button>)}</div> : <div className="track-list">{source.map((track) => <TrackRow key={track.id} track={track} source={source.map((item) => item.id)} onMenu={setMenuTrack} />)}{view === "history" && !source.length && <div className="simple-empty"><h2>再生履歴はありません</h2><p>曲を再生すると、ここからすぐに戻れます。</p></div>}</div>}</>;
     const featured = current || recent[0];

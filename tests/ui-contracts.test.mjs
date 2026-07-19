@@ -35,6 +35,28 @@ test("full player artist and favorite controls retain their interactive routes",
   assert.match(tablet, /<FavoriteButton/);
 });
 
+test("artist detail is a dedicated responsive page with playback, albums, and library context", async () => {
+  const [player, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /function ArtistDetail\(\{/);
+  assert.match(player, /className="artist-hero"/);
+  assert.match(player, /className="artist-popular"/);
+  assert.match(player, /className="artist-profile-card"/);
+  assert.match(player, /className="artist-album-grid"/);
+  assert.match(player, /onOpenAlbum\(album\.name\)/);
+  assert.match(player, /return <ArtistDetail artist=\{selectedArtist\}/);
+  assert.doesNotMatch(player, /<CollectionDetail kind="artist"/);
+
+  assert.match(css, /\.artist-back\{[\s\S]*?white-space:nowrap/);
+  assert.match(css, /\.artist-hero\{[\s\S]*?isolation:isolate/);
+  assert.match(css, /\.artist-content-grid\{display:grid/);
+  assert.match(css, /@media \(min-width:1280px\)\{[\s\S]*?\.artist-content-grid\{grid-template-columns:/);
+  assert.match(css, /\.artist-album-grid\{[\s\S]*?scroll-snap-type:x proximity/);
+});
+
 test("album ambient background remains artwork-derived, cached, layered, and motion-aware", async () => {
   const [component, player, css] = await Promise.all([
     source("../app/components/AnimatedAlbumBackground.tsx"),
