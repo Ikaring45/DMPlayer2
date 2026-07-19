@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/lyrics";
 import { usePlayerStore } from "../store";
 import { FavoriteButton } from "./FavoriteButton";
-import { Artwork, BrandMark } from "./Visuals";
+import { Artwork, BrandMark, UiIcon } from "./Visuals";
 
 export function TabletPlayer({
   audioRef,
@@ -51,7 +51,7 @@ export function TabletPlayer({
 
   return (
     <aside className="ipad-player">
-      <header><span>NOW PLAYING</span><button onClick={onOpen}>拡大</button></header>
+      <header><span>NOW PLAYING</span><button className="ipad-expand" onClick={onOpen} aria-label="再生画面を拡大"><UiIcon name="expand" /></button></header>
       <button className="ipad-art" onClick={onOpen}><Artwork track={track} size="medium" /></button>
       <div className="ipad-track-info">
         <div><strong>{track.title}</strong><small>{track.artist} · {track.album}</small></div>

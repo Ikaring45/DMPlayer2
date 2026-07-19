@@ -37,6 +37,20 @@ test("desktop sidebar collapses to an accessible persistent navigation rail", as
   assert.match(css, /\.sidebar>\.sidebar-toggle\{[\s\S]*?top:50%;[\s\S]*?border-radius:0 12px 12px 0/);
 });
 
+test("tablet player uses an accessible icon-only expand control", async () => {
+  const [tablet, visuals, css] = await Promise.all([
+    source("../app/components/TabletPlayer.tsx"),
+    source("../app/components/Visuals.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(tablet, /className="ipad-expand"[\s\S]*?aria-label="再生画面を拡大"[\s\S]*?<UiIcon name="expand"\s*\/>/);
+  assert.doesNotMatch(tablet, />拡大<\/button>/);
+  assert.match(visuals, /\|\s*"expand"/);
+  assert.match(visuals, /name === "expand"/);
+  assert.match(css, /\.ipad-player>header>\.ipad-expand\{width:36px/);
+});
+
 test("full player artist and favorite controls retain their interactive routes", async () => {
   const [player, favorite, tablet] = await Promise.all([
     source("../app/PlayerApp.tsx"),
