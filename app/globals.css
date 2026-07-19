@@ -1644,7 +1644,11 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
     height:min(68dvh,560px);
     align-self:center;
   }
-  .now-info,.seek,.play-controls,.volume-row,.now-tabs{grid-column:2}
+  .now-info{grid-column:2;grid-row:1}
+  .seek{grid-column:2;grid-row:2}
+  .play-controls{grid-column:2;grid-row:3}
+  .volume-row{grid-column:2;grid-row:4}
+  .now-tabs{grid-column:2;grid-row:5}
   .now-playing .now-scroll.mode-player .now-info,
   .now-playing .now-scroll.mode-lyrics .now-info,
   .now-playing .now-scroll.mode-queue .now-info{margin-top:0;align-self:end}
