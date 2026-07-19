@@ -86,23 +86,33 @@ test("album ambient background remains artwork-derived, cached, layered, and mot
   assert.match(css, /\.animated-album-background\[data-reduced-motion="true"\]\s+\.ambient-blob\{animation:none!important\}/);
 });
 
-test("full player keeps its background fixed while lyrics and queue own bounded scroll regions", async () => {
+test("full player switches artwork, lyrics, and queue inside one stable animated stage", async () => {
   const [player, css] = await Promise.all([
     source("../app/PlayerApp.tsx"),
     source("../app/globals.css"),
   ]);
 
+  assert.match(player, /type NowPlayingMode = "player" \| "lyrics" \| "queue"/);
   assert.match(player, /className=\{`now-playing mode-\$\{playerMode\}/);
   assert.match(player, /<TrackAmbientBackground track=\{track\}\s*\/><header[\s\S]*?<div className=\{`now-scroll mode-\$\{playerMode\}`\}>/);
+  assert.match(player, /<div className="now-stage" data-mode=\{playerMode\}>/);
+  assert.match(player, /id="now-stage-player"[\s\S]*?id="now-stage-lyrics"[\s\S]*?id="now-stage-queue"/);
+  assert.doesNotMatch(player, /\{lyricsOpen && <LyricsPanel/);
+  assert.doesNotMatch(player, /\{queueOpen && <section className="queue-panel"/);
+  assert.match(player, /className="now-tabs now-mode-dock"[\s\S]*?setPlayerMode\("player"\)[\s\S]*?setPlayerMode\("lyrics"\)[\s\S]*?setPlayerMode\("queue"\)/);
+  assert.match(player, /aria-controls="now-stage-player"/);
+  assert.match(player, /aria-controls="now-stage-lyrics"/);
+  assert.match(player, /aria-controls="now-stage-queue"/);
+
   assert.match(css, /\.now-playing\{[\s\S]*?overflow:hidden!important/);
   assert.match(css, /\.now-scroll\{[\s\S]*?position:absolute[\s\S]*?overflow-y:auto/);
-  assert.match(css, /\.now-scroll\.mode-lyrics,\.now-scroll\.mode-queue\{overflow:hidden\}/);
-  assert.match(css, /\.now-scroll\.mode-lyrics \.now-body,\.now-scroll\.mode-queue \.now-body\{[\s\S]*?height:100%;[\s\S]*?min-height:0!important;[\s\S]*?grid-template-rows:minmax\(0,1fr\) auto auto auto auto/);
-  assert.match(css, /\.mode-lyrics \.lyrics-panel\{overflow:hidden;border:0;background:transparent/);
-  assert.match(css, /\.mode-lyrics \.lyrics-scroll\{[\s\S]*?min-height:0;[\s\S]*?contain:layout paint/);
-  assert.match(css, /\.mode-queue \.queue-list\{[^}]*overflow-y:auto[^}]*overscroll-behavior:contain/);
-  assert.match(css, /\.mode-queue \.queue-panel\{[\s\S]*?display:grid;[\s\S]*?grid-template-rows:auto minmax\(0,1fr\)/);
-  assert.match(css, /\.now-scroll\.mode-lyrics \.now-body,\.now-scroll\.mode-queue \.now-body\{[\s\S]*?max-height:100%;[\s\S]*?overflow:hidden/);
+  assert.match(css, /\.now-stage\{[\s\S]*?position:relative;[\s\S]*?contain:layout paint/);
+  assert.match(css, /\.now-stage-view\{[\s\S]*?position:absolute;[\s\S]*?visibility:hidden;[\s\S]*?transition:/);
+  assert.match(css, /\.now-stage-view\.is-active\{[\s\S]*?visibility:visible;[\s\S]*?pointer-events:auto;[\s\S]*?opacity:1/);
+  assert.match(css, /\.now-stage-lyrics \.lyrics-scroll\{[\s\S]*?overflow-y:auto;[\s\S]*?contain:layout paint/);
+  assert.match(css, /\.now-stage-queue \.queue-panel\{[\s\S]*?display:grid;[\s\S]*?grid-template-rows:auto minmax\(0,1fr\)/);
+  assert.match(css, /\.now-stage-queue \.queue-list\{[\s\S]*?overflow-y:auto;[\s\S]*?overscroll-behavior:contain/);
+  assert.match(css, /\.now-mode-dock\{[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 
   assert.match(player, /className="queue-actions"[\s\S]*?<UiIcon name="up"\s*\/>[\s\S]*?<UiIcon name="down"\s*\/>[\s\S]*?<UiIcon name="close"\s*\/>/);
   assert.match(player, /const visibleQueue = store\.queue[\s\S]*?\.slice\(currentQueueIndex >= 0 \? currentQueueIndex : 0\)/);

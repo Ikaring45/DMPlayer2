@@ -262,6 +262,8 @@ function TrackAmbientBackground({ track }: { track: Track }) {
   );
 }
 
+type NowPlayingMode = "player" | "lyrics" | "queue";
+
 function NowPlaying({
   onClose,
   onOpenArtist,
@@ -274,7 +276,7 @@ function NowPlaying({
   closing?: boolean;
 }) {
   const store = usePlayerStore(); const track = store.tracks.find((item) => item.id === store.currentId);
-  const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [lyricsOpen, setLyricsOpen] = useState(false); const [queueOpen, setQueueOpen] = useState(false); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? "");
+  const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [playerMode, setPlayerMode] = useState<NowPlayingMode>("player"); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? "");
   const seekingRef = useRef(false);
   const playerRef = useRef<HTMLElement>(null);
   const dismissStartYRef = useRef(0);
@@ -349,32 +351,44 @@ function NowPlaying({
     .map((id, index) => ({ id, index }))
     .slice(currentQueueIndex >= 0 ? currentQueueIndex : 0);
   const upcomingCount = Math.max(0, store.queue.length - currentQueueIndex - 1);
-  const playerMode = lyricsOpen ? "lyrics" : queueOpen ? "queue" : "player";
   return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div className={`now-scroll mode-${playerMode}`}><div className="now-body">
-    {!lyricsOpen && !queueOpen && (track.midi ? <MidiStudio track={track} audioRef={audioRef} /> : <JukeboxArtwork track={track} playing={store.playing} />)}
-    {lyricsOpen && <LyricsPanel key={track.id} track={track} audioRef={audioRef} time={time} activeLine={activeLine} editing={editing} draft={draft} onDraftChange={setDraft} onCancelEdit={() => setEditing(false)} onSave={() => { void store.updateTrack(track.id, { lyrics: draft }); setEditing(false); }} onEdit={() => setEditing(true)} />}
-    {queueOpen && <section className="queue-panel" aria-label="再生キュー">
-      <div className="queue-heading">
-        <div><small>PLAYBACK</small><span>再生キュー</span><p>再生中 + 次の曲 {upcomingCount}曲</p></div>
-        <button disabled={upcomingCount === 0} onClick={store.clearUpcoming}>次の曲を消去</button>
+    <div className="now-stage" data-mode={playerMode}>
+      <div id="now-stage-player" className={`now-stage-view now-stage-player ${playerMode === "player" ? "is-active" : ""}`} aria-hidden={playerMode !== "player"}>
+        {track.midi ? <MidiStudio track={track} audioRef={audioRef} /> : <JukeboxArtwork track={track} playing={store.playing} />}
       </div>
-      <div className="queue-list" role="list">{visibleQueue.map(({ id, index }, visibleIndex) => {
-        const item = store.tracks.find((candidate) => candidate.id === id);
-        if (!item) return null;
-        const active = id === store.currentId;
-        return <div className={`queue-row ${active ? "active" : ""}`} key={id} role="listitem">
-          <span className="queue-number">{active ? <i><b /><b /><b /></i> : String(Math.max(1, visibleIndex)).padStart(2, "0")}</span>
-          <button className="queue-track" onClick={() => store.playTrack(id, store.queue)}><Artwork track={item} size="small" /><span><strong>{item.title}</strong><small>{item.artist}</small></span></button>
-          {active ? <span className="queue-current">再生中</span> : <div className="queue-actions"><button disabled={index <= currentQueueIndex + 1} onClick={() => store.moveQueueItem(index, index - 1)} aria-label={`${item.title}を上へ移動`}><UiIcon name="up" /></button><button disabled={index === store.queue.length - 1} onClick={() => store.moveQueueItem(index, index + 1)} aria-label={`${item.title}を下へ移動`}><UiIcon name="down" /></button><button className="queue-remove" onClick={() => store.removeFromQueue(id)} aria-label={`${item.title}をキューから削除`}><UiIcon name="close" /></button></div>}
-        </div>;
-      })}</div>
-    </section>}
+      <div id="now-stage-lyrics" className={`now-stage-view now-stage-lyrics ${playerMode === "lyrics" ? "is-active" : ""}`} aria-hidden={playerMode !== "lyrics"}>
+        <LyricsPanel key={track.id} track={track} audioRef={audioRef} time={time} activeLine={activeLine} editing={editing} draft={draft} onDraftChange={setDraft} onCancelEdit={() => setEditing(false)} onSave={() => { void store.updateTrack(track.id, { lyrics: draft }); setEditing(false); }} onEdit={() => setEditing(true)} />
+      </div>
+      <div id="now-stage-queue" className={`now-stage-view now-stage-queue ${playerMode === "queue" ? "is-active" : ""}`} aria-hidden={playerMode !== "queue"}>
+        <section className="queue-panel" aria-label="再生キュー">
+          <div className="queue-heading">
+            <div><small>UP NEXT</small><span>次に再生</span><p>再生中 + 次の曲 {upcomingCount}曲</p></div>
+            <button disabled={upcomingCount === 0} onClick={store.clearUpcoming}>消去</button>
+          </div>
+          <div className="queue-list" role="list">{visibleQueue.map(({ id, index }, visibleIndex) => {
+            const item = store.tracks.find((candidate) => candidate.id === id);
+            if (!item) return null;
+            const active = id === store.currentId;
+            return <div className={`queue-row ${active ? "active" : ""}`} key={id} role="listitem">
+              <span className="queue-number">{active ? <i><b /><b /><b /></i> : String(Math.max(1, visibleIndex)).padStart(2, "0")}</span>
+              <button className="queue-track" onClick={() => store.playTrack(id, store.queue)}><Artwork track={item} size="small" /><span><strong>{item.title}</strong><small>{item.artist}</small></span></button>
+              {active ? <span className="queue-current">再生中</span> : <div className="queue-actions"><button disabled={index <= currentQueueIndex + 1} onClick={() => store.moveQueueItem(index, index - 1)} aria-label={`${item.title}を上へ移動`}><UiIcon name="up" /></button><button disabled={index === store.queue.length - 1} onClick={() => store.moveQueueItem(index, index + 1)} aria-label={`${item.title}を下へ移動`}><UiIcon name="down" /></button><button className="queue-remove" onClick={() => store.removeFromQueue(id)} aria-label={`${item.title}をキューから削除`}><UiIcon name="close" /></button></div>}
+            </div>;
+          })}</div>
+        </section>
+      </div>
+    </div>
     <div className="now-info"><div><h1>{track.title}</h1><p><button className="artist-link" onClick={() => onOpenArtist(track.artist || "不明なアーティスト")}>{track.artist || "不明なアーティスト"}</button><span> · {track.album || "不明なアルバム"}</span></p></div><FavoriteButton favorite={track.favorite} onToggle={() => void store.updateTrack(track.id, { favorite: !track.favorite })} /></div>
     <div className="seek"><input aria-label="再生位置" type="range" min="0" max={duration || 1} step="0.1" value={Math.min(time, duration || 1)} style={{ "--seek-progress": `${duration ? Math.min(100, time / duration * 100) : 0}%` } as React.CSSProperties} onPointerDown={() => { seekingRef.current = true; }} onInput={(event) => previewSeek(Number(event.currentTarget.value))} onChange={(event) => previewSeek(Number(event.currentTarget.value))} onPointerUp={(event) => commitSeek(Number(event.currentTarget.value))} onPointerCancel={(event) => commitSeek(Number(event.currentTarget.value))} onKeyUp={(event) => commitSeek(Number(event.currentTarget.value))} onBlur={(event) => { if (seekingRef.current) commitSeek(Number(event.currentTarget.value)); }} /><div><span>{formatTime(time)}</span><span>-{formatTime(Math.max(0, duration - time))}</span></div></div>
     <div className="play-controls"><button className={store.shuffle ? "on" : ""} onClick={store.toggleShuffle} aria-label="シャッフル"><PlayerControlIcon name="shuffle" /></button><button onClick={store.previous} aria-label="前の曲"><PlayerControlIcon name="previous" /></button><button className="play-main" onClick={() => store.playing ? store.setPlaying(false) : store.playTrack(track.id, store.queue)} aria-label={store.playing ? "一時停止" : "再生"}><PlayerControlIcon name={store.playing ? "pause" : "play"} /></button><button onClick={store.next} aria-label="次の曲"><PlayerControlIcon name="next" /></button><button className={store.repeat !== "off" ? "on repeat-control" : "repeat-control"} onClick={store.cycleRepeat} aria-label="リピート"><PlayerControlIcon name="repeat" />{store.repeat === "one" && <span>1</span>}</button></div>
-    <div className="volume-row"><PlayerControlIcon name="volume-low" /><input aria-label="音量" type="range" min="0" max="1" step="0.01" value={store.volume} style={{ "--volume-progress": `${store.volume * 100}%` } as React.CSSProperties} onChange={(event) => store.setVolume(Number(event.target.value))} /><PlayerControlIcon name="volume-high" /></div><div className="now-tabs"><button className={lyricsOpen ? "active" : ""} onClick={() => { setLyricsOpen(!lyricsOpen); setQueueOpen(false); }}>歌詞</button><button className={queueOpen ? "active" : ""} onClick={() => { setQueueOpen(!queueOpen); setLyricsOpen(false); }}>キュー</button><span>次の曲 · {upcomingCount}</span></div>
+    <div className="volume-row"><PlayerControlIcon name="volume-low" /><input aria-label="音量" type="range" min="0" max="1" step="0.01" value={store.volume} style={{ "--volume-progress": `${store.volume * 100}%` } as React.CSSProperties} onChange={(event) => store.setVolume(Number(event.target.value))} /><PlayerControlIcon name="volume-high" /></div>
+    <nav className="now-tabs now-mode-dock" aria-label="表示を切り替え">
+      <button className={playerMode === "player" ? "active" : ""} aria-pressed={playerMode === "player"} aria-controls="now-stage-player" onClick={() => setPlayerMode("player")}><UiIcon name="artwork" /><span>再生</span></button>
+      <button className={playerMode === "lyrics" ? "active" : ""} aria-pressed={playerMode === "lyrics"} aria-controls="now-stage-lyrics" onClick={() => setPlayerMode("lyrics")}><UiIcon name="lyrics" /><span>歌詞</span></button>
+      <button className={playerMode === "queue" ? "active" : ""} aria-pressed={playerMode === "queue"} aria-controls="now-stage-queue" onClick={() => setPlayerMode("queue")}><UiIcon name="queue" /><span>次に再生</span>{upcomingCount > 0 && <small>{upcomingCount}</small>}</button>
+    </nav>
     <aside className="now-landscape-rail">
-      <header><div><span>UP NEXT</span><strong>次に再生</strong></div><button onClick={() => { setQueueOpen(true); setLyricsOpen(false); }}>すべて見る</button></header>
+      <header><div><span>UP NEXT</span><strong>次に再生</strong></div><button onClick={() => setPlayerMode("queue")}>すべて見る</button></header>
       <div className="landscape-queue">{upcomingTracks.length ? upcomingTracks.map((item, index) => <button key={item.id} onClick={() => store.playTrack(item.id, store.queue)}><span>{String(index + 1).padStart(2, "0")}</span><Artwork track={item} size="small" /><div><strong>{item.title}</strong><small>{item.artist}</small></div></button>) : <p>次に再生する曲はありません</p>}</div>
       <div className="landscape-details"><div><span>アルバム</span><strong>{track.album || "不明なアルバム"}</strong></div><div><span>サウンド</span><strong>{store.eqEnabled ? "5バンドEQ" : "オリジナル"}</strong></div><div><span>再生モード</span><strong>{store.shuffle ? "シャッフル" : store.repeat === "one" ? "1曲リピート" : store.repeat === "all" ? "全曲リピート" : "通常再生"}</strong></div></div>
     </aside>
