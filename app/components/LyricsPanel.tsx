@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatTime } from "../lib/lyrics";
 import type { Track } from "../types";
 import { UiIcon } from "./Visuals";
 
@@ -31,6 +32,7 @@ export function LyricsPanel({
 }: LyricsPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
+  const synced = Boolean(track.syncedLyrics?.length);
 
   const scrollToActiveLine = useCallback((behavior: ScrollBehavior = "smooth") => {
     const scroller = scrollRef.current;
@@ -47,8 +49,22 @@ export function LyricsPanel({
     if (following) scrollToActiveLine();
   }, [following, scrollToActiveLine]);
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setFollowing(true));
+    return () => cancelAnimationFrame(frame);
+  }, [track.id]);
+
   if (editing) {
-    return <section className="lyrics-panel lyrics-editing"><div className="lyrics-toolbar"><div><small>LYRICS</small><strong>歌詞を編集</strong></div></div><div className="lyrics-editor"><textarea value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder="歌詞、またはLRC形式の同期歌詞を入力" /><div><button onClick={onCancelEdit}>キャンセル</button><button className="primary-button compact" onClick={onSave}>保存</button></div></div></section>;
+    return <section className="lyrics-panel lyrics-editing">
+      <div className="lyrics-toolbar">
+        <div><small>LYRICS EDITOR</small><strong>歌詞を編集</strong></div>
+        <span className="lyrics-format-badge">LRC対応</span>
+      </div>
+      <div className="lyrics-editor">
+        <textarea value={draft} onChange={(event) => onDraftChange(event.target.value)} placeholder={"通常の歌詞、またはLRC形式を入力\n例：[00:12.50] 最初の歌詞"} aria-label="歌詞を編集" />
+        <div className="lyrics-editor-footer"><small>{draft.length.toLocaleString("ja-JP")}文字</small><span><button onClick={onCancelEdit}>キャンセル</button><button className="primary-button compact" onClick={onSave}>保存</button></span></div>
+      </div>
+    </section>;
   }
 
   const seekToLine = (index: number) => {
@@ -60,8 +76,14 @@ export function LyricsPanel({
 
   return <section className="lyrics-panel">
     <div className="lyrics-toolbar">
-      <div><small>歌詞</small><strong>{track.title}</strong></div>
-      <button onClick={onEdit} aria-label="歌詞を編集"><UiIcon name="more" /></button>
+      <div className="lyrics-toolbar-copy">
+        <small><span className={`lyrics-type-badge ${synced ? "is-synced" : ""}`}>{synced ? "同期歌詞" : "歌詞"}</span>{synced ? activeLine >= 0 ? `${activeLine + 1} / ${track.syncedLyrics?.length ?? 0}` : "開始前" : track.artist || "不明なアーティスト"}</small>
+        <strong>{track.title}</strong>
+      </div>
+      <div className="lyrics-toolbar-actions">
+        {synced && <span className={`lyrics-follow-state ${following ? "is-following" : ""}`}><i />{following ? "追従中" : "手動"}</span>}
+        <button className="lyrics-edit-button" onClick={onEdit} aria-label="歌詞を編集"><UiIcon name="edit" /><span>編集</span></button>
+      </div>
     </div>
     <div
       className="lyrics-scroll"
@@ -84,11 +106,13 @@ export function LyricsPanel({
             className={`lyrics-line ${index === activeLine ? "current" : ""} ${distance === 1 ? "near" : distance > 3 ? "far" : ""}`}
             style={{ "--lyric-progress": `${progress}%` } as React.CSSProperties}
             onClick={() => seekToLine(index)}
+            aria-current={index === activeLine ? "true" : undefined}
+            aria-label={`${formatTime(line.time)} ${line.text}`}
           >{line.text}</button>;
         })}
         <div className="lyrics-trailing-space" />
-      </> : track.lyrics ? <p className="plain-lyrics">{track.lyrics}</p> : <div className="no-lyrics"><span aria-hidden="true">“</span><strong>歌詞はまだありません</strong><small>埋め込み歌詞を読み込むか、歌詞を追加できます。</small><button className="primary-button compact" onClick={onEdit}>歌詞を追加</button></div>}
+      </> : track.lyrics ? <div className="plain-lyrics" role="document">{track.lyrics.split(/\r?\n/).map((line, index) => line.trim() ? <p key={`${index}-${line}`}>{line}</p> : <span className="plain-lyrics-gap" key={`gap-${index}`} aria-hidden="true" />)}</div> : <div className="no-lyrics"><span aria-hidden="true"><UiIcon name="lyrics" /></span><strong>歌詞はまだありません</strong><small>埋め込み歌詞を読み込むか、通常の歌詞・LRC同期歌詞を追加できます。</small><button className="primary-button compact" onClick={onEdit}><UiIcon name="add" />歌詞を追加</button></div>}
     </div>
-    {!following && activeLine >= 0 && <button className="lyrics-follow" onClick={() => { setFollowing(true); scrollToActiveLine(); }}><span>↑</span> 再生中の歌詞へ</button>}
+    {!following && activeLine >= 0 && <button className="lyrics-follow" onClick={() => { setFollowing(true); scrollToActiveLine(); }}><UiIcon name="lyrics" />再生中の行へ戻る</button>}
   </section>;
 }

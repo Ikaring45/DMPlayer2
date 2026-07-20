@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.5.5");
+  assert.equal(packageJson.version, "0.5.6");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -188,10 +188,10 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
   assert.match(player, /インストール済みアプリも最新版へ/);
   assert.match(player, /アップデートを確認/);
-  assert.match(player, /Version 0\.5\.5/);
+  assert.match(player, /Version 0\.5\.6/);
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v16"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v17"/);
   assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
   assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
   assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
@@ -453,9 +453,32 @@ test("full player switches artwork, lyrics, and queue inside one stable animated
   assert.match(css, /@media \(orientation:portrait\) and \(max-width:390px\) and \(max-height:700px\)\{[\s\S]*?\.now-stage\{height:clamp\(218px,36dvh,240px\)\}[\s\S]*?\.now-stage-player \.jukebox-artwork\{width:min\(64vw,240px\)\}[\s\S]*?\.now-playing \.now-scroll\.mode-player \.volume-row,[\s\S]*?\{display:none\}/);
   assert.match(css, /@media \(orientation:portrait\) and \(max-width:340px\) and \(max-height:620px\)\{[\s\S]*?\.now-stage\{height:clamp\(176px,33dvh,194px\)\}[\s\S]*?\.now-mode-dock button>span\{display:none\}/);
 
-  assert.match(player, /className="queue-actions"[\s\S]*?<UiIcon name="up"\s*\/>[\s\S]*?<UiIcon name="down"\s*\/>[\s\S]*?<UiIcon name="close"\s*\/>/);
-  assert.match(player, /const visibleQueue = store\.queue[\s\S]*?\.slice\(currentQueueIndex >= 0 \? currentQueueIndex : 0\)/);
+  assert.match(player, /className="queue-section-label"[\s\S]*?再生中[\s\S]*?className="queue-section-label queue-section-upcoming"[\s\S]*?次に再生/);
+  assert.match(player, /const upcomingQueue = store\.queue[\s\S]*?\.slice\(currentQueueIndex >= 0 \? currentQueueIndex \+ 1 : 0\)/);
+  assert.match(player, /draggable[\s\S]*?setDraggedQueueIndex\(index\)[\s\S]*?store\.moveQueueItem\(draggedQueueIndex, index\)/);
+  assert.match(player, /className="queue-more"[\s\S]*?aria-expanded=\{menuOpen\}[\s\S]*?className="queue-row-menu"/);
+  assert.match(player, /className="queue-empty"[\s\S]*?次に再生する曲はありません/);
   assert.match(player, /disabled=\{upcomingCount === 0\}/);
+  assert.match(css, /\.now-playing \.now-stage-queue \.queue-row-menu\{[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+});
+
+test("lyrics distinguish sync state, following, editing, and empty content", async () => {
+  const [lyrics, css] = await Promise.all([
+    source("../app/components/LyricsPanel.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(lyrics, /const synced = Boolean\(track\.syncedLyrics\?\.length\)/);
+  assert.match(lyrics, /setFollowing\(true\)[\s\S]*?\[track\.id\]/);
+  assert.match(lyrics, /lyrics-type-badge[\s\S]*?同期歌詞[\s\S]*?lyrics-follow-state[\s\S]*?追従中/);
+  assert.match(lyrics, /aria-current=\{index === activeLine \? "true" : undefined\}/);
+  assert.match(lyrics, /aria-label=\{`\$\{formatTime\(line\.time\)\} \$\{line\.text\}`\}/);
+  assert.match(lyrics, /LYRICS EDITOR[\s\S]*?LRC対応[\s\S]*?lyrics-editor-footer/);
+  assert.match(lyrics, /className="plain-lyrics" role="document"[\s\S]*?split\(\/\\r\?\\n\/\)/);
+  assert.match(lyrics, /className="no-lyrics"[\s\S]*?通常の歌詞・LRC同期歌詞/);
+  assert.match(css, /\.now-playing \.lyrics-follow-state\.is-following i\{/);
+  assert.match(css, /\.now-playing \.lyrics-panel \.plain-lyrics\{[\s\S]*?flex-direction:column/);
+  assert.match(css, /\.now-playing \.lyrics-editor \.lyrics-editor-footer\{/);
 });
 
 test("artwork rims stay removed and every installed app icon is PNG", async () => {

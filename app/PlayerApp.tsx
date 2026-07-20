@@ -475,6 +475,8 @@ function NowPlaying({
       : (["auto", "high", "low"] as const).find((quality) => quality === localStorage.getItem("dmplayer-ambient-quality")) ?? "auto"
   );
   const [time, setTime] = useState(0); const [duration, setDuration] = useState(track?.duration ?? 0); const [playerMode, setPlayerMode] = useState<NowPlayingMode>("player"); const [editing, setEditing] = useState(false); const [draft, setDraft] = useState(track?.lyrics ?? "");
+  const [queueMenuId, setQueueMenuId] = useState<string>();
+  const [draggedQueueIndex, setDraggedQueueIndex] = useState<number>();
   const seekingRef = useRef(false);
   const playerRef = useRef<HTMLElement>(null);
   const nowScrollRef = useRef<HTMLDivElement>(null);
@@ -507,6 +509,13 @@ function NowPlaying({
     const frame = requestAnimationFrame(() => nowScrollRef.current?.scrollTo({ top: 0 }));
     return () => cancelAnimationFrame(frame);
   }, [playerMode, track?.id]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setQueueMenuId(undefined);
+      setDraggedQueueIndex(undefined);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [track?.id]);
   const activeLine = track?.syncedLyrics?.reduce((index, line, i) => line.time <= time ? i : index, -1) ?? -1;
   const previewSeek = (value: number) => { seekingRef.current = true; setTime(value); };
   const commitSeek = (value: number) => {
@@ -562,14 +571,13 @@ function NowPlaying({
   };
   if (!track) return null;
   const currentQueueIndex = store.queue.indexOf(track.id);
-  const upcomingTracks = store.queue
-    .slice(currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0, currentQueueIndex >= 0 ? currentQueueIndex + 6 : 5)
-    .map((id) => store.tracks.find((item) => item.id === id))
-    .filter((item): item is Track => Boolean(item));
-  const visibleQueue = store.queue
-    .map((id, index) => ({ id, index }))
-    .slice(currentQueueIndex >= 0 ? currentQueueIndex : 0);
-  const upcomingCount = Math.max(0, store.queue.length - currentQueueIndex - 1);
+  const upcomingQueue = store.queue
+    .map((id, index) => ({ id, index, item: store.tracks.find((candidate) => candidate.id === id) }))
+    .filter((entry): entry is { id: string; index: number; item: Track } => Boolean(entry.item))
+    .slice(currentQueueIndex >= 0 ? currentQueueIndex + 1 : 0);
+  const upcomingTracks = upcomingQueue.slice(0, 5).map(({ item }) => item);
+  const upcomingCount = upcomingQueue.length;
+  const upcomingDuration = upcomingQueue.reduce((total, { item }) => total + (item.duration ?? 0), 0);
   return <section ref={playerRef} className={`now-playing mode-${playerMode} ${closing ? "closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="now-playing-title"><TrackAmbientBackground track={track} quality={backgroundQuality} /><header onPointerDown={beginDismissDrag} onPointerMove={moveDismissDrag} onPointerUp={endDismissDrag} onPointerCancel={(event) => endDismissDrag(event, true)}><button className="now-close" onClick={onClose} aria-label="閉じる"><UiIcon name="back" /></button><span id="now-playing-title" className="now-header-album" title={track.album}>{track.album || "不明なアルバム"}</span><span className="now-header-spacer" aria-hidden="true" /></header><div ref={nowScrollRef} className={`now-scroll mode-${playerMode}`}><div className="now-body">
     <div className="now-stage" data-mode={playerMode}>
       <div id="now-stage-player" className={`now-stage-view now-stage-player ${playerMode === "player" ? "is-active" : ""}`} aria-hidden={playerMode !== "player"}>
@@ -581,19 +589,55 @@ function NowPlaying({
       <div id="now-stage-queue" className={`now-stage-view now-stage-queue ${playerMode === "queue" ? "is-active" : ""}`} aria-hidden={playerMode !== "queue"}>
         <section className="queue-panel" aria-label="再生キュー">
           <div className="queue-heading">
-            <div><small>UP NEXT</small><span>次に再生</span><p>再生中 + 次の曲 {upcomingCount}曲</p></div>
-            <button disabled={upcomingCount === 0} onClick={store.clearUpcoming}>消去</button>
+            <div><small>QUEUE</small><span>再生キュー</span><p>{upcomingCount > 0 ? `次の曲 ${upcomingCount}曲${upcomingDuration > 0 ? ` · ${formatTime(upcomingDuration)}` : ""}` : "次に再生する曲はありません"}</p></div>
+            <button disabled={upcomingCount === 0} onClick={() => { store.clearUpcoming(); setQueueMenuId(undefined); }}><UiIcon name="trash" /><span>次の曲を消去</span></button>
           </div>
-          <div className="queue-list" role="list">{visibleQueue.map(({ id, index }, visibleIndex) => {
-            const item = store.tracks.find((candidate) => candidate.id === id);
-            if (!item) return null;
-            const active = id === store.currentId;
-            return <div className={`queue-row ${active ? "active" : ""}`} key={id} role="listitem">
-              <span className="queue-number">{active ? <i><b /><b /><b /></i> : String(Math.max(1, visibleIndex)).padStart(2, "0")}</span>
-              <button className="queue-track" onClick={() => store.playTrack(id, store.queue)}><Artwork track={item} size="small" /><span><strong>{item.title}</strong><small>{item.artist}</small></span></button>
-              {active ? <span className="queue-current">再生中</span> : <div className="queue-actions"><button disabled={index <= currentQueueIndex + 1} onClick={() => store.moveQueueItem(index, index - 1)} aria-label={`${item.title}を上へ移動`}><UiIcon name="up" /></button><button disabled={index === store.queue.length - 1} onClick={() => store.moveQueueItem(index, index + 1)} aria-label={`${item.title}を下へ移動`}><UiIcon name="down" /></button><button className="queue-remove" onClick={() => store.removeFromQueue(id)} aria-label={`${item.title}をキューから削除`}><UiIcon name="close" /></button></div>}
-            </div>;
-          })}</div>
+          <div className="queue-list">
+            <div className="queue-section-label"><span>再生中</span><small>{formatTime(duration || track.duration || 0)}</small></div>
+            <div className="queue-row active" role="group" aria-label={`${store.playing ? "再生中" : "一時停止"}：${track.title}`}>
+              <span className="queue-number"><i className={store.playing ? "is-playing" : ""}><b /><b /><b /></i></span>
+              <button className="queue-track" onClick={() => store.playTrack(track.id, store.queue)}><Artwork track={track} size="small" /><span><strong>{track.title}</strong><small>{track.artist}</small></span></button>
+              <span className="queue-current">{store.playing ? "再生中" : "一時停止"}</span>
+            </div>
+            {upcomingCount > 0 ? <>
+              <div className="queue-section-label queue-section-upcoming"><span>次に再生</span><small>{upcomingCount}曲</small></div>
+              <div role="list" aria-label="次に再生する曲">{upcomingQueue.map(({ id, index, item }, upcomingIndex) => {
+                const menuOpen = queueMenuId === id;
+                const menuId = `queue-actions-${index}`;
+                return <div
+                  className={`queue-row ${menuOpen ? "actions-open" : ""} ${draggedQueueIndex === index ? "is-dragging" : ""}`}
+                  key={id}
+                  role="listitem"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(index));
+                    setDraggedQueueIndex(index);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (draggedQueueIndex !== undefined && draggedQueueIndex !== index) store.moveQueueItem(draggedQueueIndex, index);
+                    setDraggedQueueIndex(undefined);
+                    setQueueMenuId(undefined);
+                  }}
+                  onDragEnd={() => setDraggedQueueIndex(undefined)}
+                >
+                  <span className="queue-number">{String(upcomingIndex + 1).padStart(2, "0")}</span>
+                  <button className="queue-track" onClick={() => store.playTrack(id, store.queue)}><Artwork track={item} size="small" /><span><strong>{item.title}</strong><small>{item.artist}</small></span></button>
+                  <button className="queue-more" aria-label={`${item.title}のキュー操作`} aria-expanded={menuOpen} aria-controls={menuId} onClick={() => setQueueMenuId(menuOpen ? undefined : id)}><UiIcon name={menuOpen ? "close" : "more"} /></button>
+                  {menuOpen && <div className="queue-row-menu" id={menuId}>
+                    <button disabled={index <= currentQueueIndex + 1} onClick={() => { store.moveQueueItem(index, index - 1); setQueueMenuId(undefined); }}><UiIcon name="up" /><span>前へ</span></button>
+                    <button disabled={index === store.queue.length - 1} onClick={() => { store.moveQueueItem(index, index + 1); setQueueMenuId(undefined); }}><UiIcon name="down" /><span>後へ</span></button>
+                    <button className="queue-remove" onClick={() => { store.removeFromQueue(id); setQueueMenuId(undefined); }}><UiIcon name="trash" /><span>削除</span></button>
+                  </div>}
+                </div>;
+              })}</div>
+            </> : <div className="queue-empty"><span aria-hidden="true"><UiIcon name="queue" /></span><strong>次に再生する曲はありません</strong><small>曲のメニューから「次に再生」または「キューに追加」を選べます。</small></div>}
+          </div>
         </section>
       </div>
     </div>
@@ -1197,13 +1241,13 @@ export default function PlayerApp() {
   const resolvedAmbientQuality = ambientQuality === "auto" ? automaticAmbientQuality : ambientQuality;
   const settingsContent = <div className="settings-page">
     <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
-    <section className="settings-section app-update-section"><SettingsHeading icon="refresh" title="アプリの更新" caption="インストール済みアプリも最新版へ" /><div className="setting-card rows app-update-card"><div><span>現在のバージョン</span><strong>Version 0.5.5</strong></div><button disabled={appUpdateState === "checking" || appUpdateState === "unsupported"} onClick={() => appUpdateState === "ready" ? applyAppUpdate() : void checkForAppUpdate(true)}><span className="settings-action"><UiIcon name="refresh" />アップデートを確認</span><strong>{appUpdateState === "ready" ? store.playing ? "停止して更新" : "今すぐ更新" : appUpdateState === "checking" ? "確認中…" : appUpdateState === "current" ? "最新版" : appUpdateState === "unsupported" ? "利用不可" : "確認する"}</strong></button><div className="setting-note">起動時・アプリ復帰時・オンライン復帰時にも自動で確認します。</div></div></section>
+    <section className="settings-section app-update-section"><SettingsHeading icon="refresh" title="アプリの更新" caption="インストール済みアプリも最新版へ" /><div className="setting-card rows app-update-card"><div><span>現在のバージョン</span><strong>Version 0.5.6</strong></div><button disabled={appUpdateState === "checking" || appUpdateState === "unsupported"} onClick={() => appUpdateState === "ready" ? applyAppUpdate() : void checkForAppUpdate(true)}><span className="settings-action"><UiIcon name="refresh" />アップデートを確認</span><strong>{appUpdateState === "ready" ? store.playing ? "停止して更新" : "今すぐ更新" : appUpdateState === "checking" ? "確認中…" : appUpdateState === "current" ? "最新版" : appUpdateState === "unsupported" ? "利用不可" : "確認する"}</strong></button><div className="setting-note">起動時・アプリ復帰時・オンライン復帰時にも自動で確認します。</div></div></section>
     <section className="settings-section"><SettingsHeading icon="timer" title="再生" caption="速度とスリープタイマー" /><PlaybackTools playbackRate={playbackRate} onPlaybackRateChange={changePlaybackRate} sleepTimer={sleepTimer} sleepRemaining={sleepRemaining} onSleepMinutes={scheduleSleep} onSleepAfterTrack={stopAfterCurrentTrack} onCancelSleep={cancelSleep} /></section>
     <section className="settings-section"><SettingsHeading icon="controls" title="操作と端末" caption="シーク、画面ロック、触覚" /><DevicePreferences skipSeconds={skipSeconds} keepScreenAwake={keepScreenAwake} hapticsEnabled={hapticsEnabled} onSkipSecondsChange={changeSkipSeconds} onKeepScreenAwakeChange={changeKeepScreenAwake} onHapticsChange={changeHaptics} /></section>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
     <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="テーマと端末別の描画設定" /><AppearancePreferences theme={store.theme} ambientQuality={ambientQuality} resolvedAmbientQuality={resolvedAmbientQuality} onThemeChange={store.setTheme} onAmbientQualityChange={changeAmbientQuality} /></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(totalBytes / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
-    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.5.5</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
+    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.5.6</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
   </div>;
 
   return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${nowOpen ? "now-open" : ""} performance-${resolvedAmbientQuality}`} onDragEnter={handleDragEnter} onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDragLeave={handleDragLeave} onDrop={handleDrop}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} playbackRate={playbackRate} stopAfterTrack={sleepTimer.mode === "track"} onStopAfterTrack={completeTrackSleep} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" disabled={Boolean(store.importProgress)} onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} ambientQuality={resolvedAmbientQuality} />}
