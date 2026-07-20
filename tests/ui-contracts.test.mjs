@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.4.3");
+  assert.equal(packageJson.version, "0.5.0");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -188,10 +188,10 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
   assert.match(player, /インストール済みアプリも最新版へ/);
   assert.match(player, /アップデートを確認/);
-  assert.match(player, /Version 0\.4\.3/);
+  assert.match(player, /Version 0\.5\.0/);
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v10"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v11"/);
   assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
   assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
   assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
@@ -216,6 +216,34 @@ test("full player artist and favorite controls retain their interactive routes",
   assert.match(favorite, /<UiIcon name="heart"\s*\/>/);
   assert.match(player, /<FavoriteButton\s+favorite=\{track\.favorite\}/);
   assert.match(tablet, /<FavoriteButton/);
+});
+
+test("empty states and compact player controls stay actionable and visually consistent", async () => {
+  const [player, tablet, sidebar, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/TabletPlayer.tsx"),
+    source("../app/components/SidebarLibrary.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /function EmptyPanel\(\{/);
+  assert.match(player, /検索できる曲がありません/);
+  assert.match(player, /actionLabel="音楽を追加"\s+onAction=\{openPicker\}/);
+  assert.match(player, /icon="timer"\s+title="再生履歴はありません"/);
+  assert.match(player, /icon="heart"\s+title="お気に入りはまだありません"/);
+  assert.match(tablet, /import \{ Artwork, PlayerControlIcon, UiIcon \}/);
+  assert.match(tablet, /aria-label="再生画面を開く"/);
+  assert.match(tablet, /<PlayerControlIcon name="previous"\s*\/>/);
+  assert.match(tablet, /<PlayerControlIcon name=\{store\.playing \? "pause" : "play"\}\s*\/>/);
+  assert.match(tablet, /<PlayerControlIcon name="next"\s*\/>/);
+  assert.doesNotMatch(tablet, /\|◀|▶\||Ⅱ/);
+  assert.match(tablet, /className="ipad-up-next-empty"/);
+  assert.match(sidebar, /<UiIcon name="timer"\s*\/>/);
+  assert.match(sidebar, /<UiIcon name="heart"\s*\/>/);
+  assert.match(sidebar, /<UiIcon name="playlist"\s*\/>/);
+  assert.doesNotMatch(sidebar, />◷<|>♥<|>♫</);
+  assert.match(css, /\.section-empty>span\{/);
+  assert.match(css, /\.ipad-up-next-empty\{/);
 });
 
 test("artist detail is a dedicated responsive page with playback, albums, and library context", async () => {

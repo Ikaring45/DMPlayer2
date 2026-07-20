@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/lyrics";
 import { usePlayerStore } from "../store";
 import { FavoriteButton } from "./FavoriteButton";
-import { Artwork, UiIcon } from "./Visuals";
+import { Artwork, PlayerControlIcon, UiIcon } from "./Visuals";
 
 export function TabletPlayer({
   audioRef,
@@ -50,10 +50,16 @@ export function TabletPlayer({
     return <aside className="ipad-player empty"><span><UiIcon name="artwork" /></span><strong>曲を選択</strong><small>ライブラリから曲を選ぶと、ここに再生情報が表示されます。</small></aside>;
   }
 
+  const currentQueueIndex = store.queue.indexOf(track.id);
+  const upNextIds = store.queue.slice(
+    Math.max(0, currentQueueIndex + 1),
+    Math.max(0, currentQueueIndex + 4),
+  );
+
   return (
     <aside className="ipad-player">
       <header><span>NOW PLAYING</span><button className="ipad-expand" onClick={onOpen} aria-label="再生画面を拡大"><UiIcon name="expand" /></button></header>
-      <button className="ipad-art" onClick={onOpen}><Artwork track={track} size="medium" /></button>
+      <button className="ipad-art" onClick={onOpen} aria-label="再生画面を開く"><Artwork track={track} size="medium" /></button>
       <div className="ipad-track-info">
         <div><strong>{track.title}</strong><small>{loading ? "音源を読み込み中…" : `${track.artist} · ${track.album}`}</small></div>
         <FavoriteButton
@@ -81,13 +87,13 @@ export function TabletPlayer({
         <div><span>{formatTime(time)}</span><span>-{formatTime(Math.max(0, duration - time))}</span></div>
       </div>
       <div className="ipad-controls">
-        <button onClick={store.previous} aria-label="前の曲">|◀</button>
+        <button onClick={store.previous} aria-label="前の曲"><PlayerControlIcon name="previous" /></button>
         <button
           className={`ipad-play ${loading ? "is-loading" : ""}`}
           onClick={() => store.playing ? store.setPlaying(false) : store.playTrack(track.id, store.queue)}
           aria-label={loading ? "読み込み中" : store.playing ? "一時停止" : "再生"}
-        >{loading ? <i className="playback-spinner" /> : store.playing ? "Ⅱ" : "▶"}</button>
-        <button onClick={store.next} aria-label="次の曲">▶|</button>
+        >{loading ? <i className="playback-spinner" /> : <PlayerControlIcon name={store.playing ? "pause" : "play"} />}</button>
+        <button onClick={store.next} aria-label="次の曲"><PlayerControlIcon name="next" /></button>
       </div>
       <div className="ipad-player-status">
         <button className={store.shuffle ? "active" : ""} aria-pressed={store.shuffle} onClick={store.toggleShuffle}>シャッフル</button>
@@ -101,10 +107,11 @@ export function TabletPlayer({
       </div>}
       <div className="ipad-up-next">
         <span>次に再生</span>
-        {store.queue.slice(Math.max(0, store.queue.indexOf(track.id) + 1), Math.max(0, store.queue.indexOf(track.id) + 4)).map((id) => {
+        {upNextIds.map((id) => {
           const item = store.tracks.find((candidate) => candidate.id === id);
           return item ? <button key={id} onClick={() => store.playTrack(id, store.queue)}><Artwork track={item} size="small" /><span><strong>{item.title}</strong><small>{item.artist}</small></span></button> : null;
         })}
+        {!upNextIds.length && <p className="ipad-up-next-empty"><UiIcon name="queue" /><span><strong>キューの最後です</strong><small>ライブラリから曲を選ぶと追加されます</small></span></p>}
       </div>
     </aside>
   );

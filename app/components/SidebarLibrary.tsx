@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlayerStore } from "../store";
+import { UiIcon } from "./Visuals";
 
 type SidebarLibraryProps = {
   onOpenRecent: () => void;
@@ -19,7 +20,7 @@ export function SidebarLibrary({ onOpenRecent, onOpenPlaylist }: SidebarLibraryP
       <div className="sidebar-quick">
         <span>クイックアクセス</span>
         <button onClick={onOpenRecent}>
-          <i className="quick-recent">◷</i><strong>最近追加</strong><small>{recent.length}</small>
+          <i className="quick-recent"><UiIcon name="timer" /></i><strong>最近追加</strong><small>{recent.length}</small>
         </button>
       </div>
       <div className="sidebar-playlist-heading">
@@ -34,14 +35,14 @@ export function SidebarLibrary({ onOpenRecent, onOpenPlaylist }: SidebarLibraryP
       </div>
       <div className="sidebar-playlist-list">
         <button className="smart-playlist" onClick={() => onOpenPlaylist("favorites")}>
-          <i>♥</i><span><strong>お気に入りの曲</strong><small>自動更新 · {favorites.length}曲</small></span>
+          <i><UiIcon name="heart" /></i><span><strong>お気に入りの曲</strong><small>自動更新 · {favorites.length}曲</small></span>
         </button>
         {playlists.map((playlist, index) => (
           <button
             key={playlist.id}
             onClick={() => onOpenPlaylist(playlist.id)}
           >
-            <i style={{ "--playlist-hue": `${(index * 47 + 325) % 360}` } as React.CSSProperties}>♫</i>
+            <i style={{ "--playlist-hue": `${(index * 47 + 325) % 360}` } as React.CSSProperties}><UiIcon name="playlist" /></i>
             <span><strong>{playlist.name}</strong><small>{playlist.trackIds.length}曲</small></span>
           </button>
         ))}
