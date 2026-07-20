@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.5.4");
+  assert.equal(packageJson.version, "0.5.5");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -188,10 +188,10 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
   assert.match(player, /インストール済みアプリも最新版へ/);
   assert.match(player, /アップデートを確認/);
-  assert.match(player, /Version 0\.5\.4/);
+  assert.match(player, /Version 0\.5\.5/);
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v15"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v16"/);
   assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
   assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
   assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
@@ -246,19 +246,19 @@ test("empty states and compact player controls stay actionable and visually cons
   assert.match(css, /\.ipad-up-next-empty\{/);
 });
 
-test("full player uses a balanced ambient surface without changing the dark theme", async () => {
+test("full player uses a natural light surface without changing the dark theme", async () => {
   const css = await source("../app/globals.css");
 
-  assert.match(css, /:root\{[\s\S]*?--player-bg:#616b7e/);
-  assert.match(css, /:root\{[\s\S]*?--player-text:#fafbff/);
-  assert.match(css, /:root\{[\s\S]*?--player-palette-filter:brightness\(1\.16\) saturate\(\.88\)/);
+  assert.match(css, /:root\{[\s\S]*?--player-bg:#edf1f7/);
+  assert.match(css, /:root\{[\s\S]*?--player-text:#18202d/);
+  assert.match(css, /:root\{[\s\S]*?--player-palette-filter:brightness\(1\.24\) saturate\(\.72\)/);
   assert.match(css, /:root\[data-theme="dark"\]\{[\s\S]*?--player-bg:#080a0f/);
   assert.match(css, /@media \(prefers-color-scheme:dark\)\{[\s\S]*?:root:not\(\[data-theme="light"\]\)/);
   assert.match(css, /\.now-playing\{[\s\S]*?background:var\(--player-bg\)/);
   assert.match(css, /\.now-playing \.ambient-dark-overlay,[\s\S]*?background:var\(--player-overlay\)/);
   assert.match(css, /\.now-playing \.play-controls \.play-main\{[\s\S]*?background:linear-gradient\(145deg,var\(--player-text\)/);
   assert.match(css, /\.now-playing \.now-stage-queue \.queue-panel\{[\s\S]*?background:var\(--player-panel-bg\)/);
-  assert.match(css, /\.now-playing \.now-stage-lyrics \.lyrics-line\.current\{color:var\(--player-text\)/);
+  assert.match(css, /\.now-playing \.now-stage-lyrics \.lyrics-line\.current\{[\s\S]*?color:transparent;[\s\S]*?var\(--player-text\)/);
 });
 
 test("artist detail is a dedicated responsive page with playback, albums, and library context", async () => {
@@ -349,19 +349,51 @@ test("device and appearance settings persist and control real player behavior", 
   assert.match(player, /function AppearancePreferences\(\{/);
   assert.match(player, /画面をスリープさせない/);
   assert.match(player, /触覚フィードバック/);
+  assert.match(player, /ロック画面・Bluetooth操作/);
   assert.match(player, /描画パフォーマンス/);
+  assert.match(player, /現在：\{ambientQuality === "auto" \? `自動（\$\{activeLabel\}）` : activeLabel\}/);
+  assert.match(player, /resolvedAmbientQuality=\{resolvedAmbientQuality\}/);
   assert.match(player, /dmplayer-skip-seconds/);
   assert.match(player, /dmplayer-ambient-quality/);
   assert.match(player, /dmplayer-keep-awake/);
   assert.match(player, /dmplayer-haptics/);
   assert.match(player, /wakeLock\.request\("screen"\)/);
   assert.match(player, /quality=\{backgroundQuality\}/);
-  assert.match(engine, /currentTime \+= skipSeconds/);
-  assert.match(engine, /currentTime -= skipSeconds/);
+  assert.match(engine, /\["stop", \(\) => \{/);
+  assert.match(engine, /\["previoustrack", previousOrRestart\]/);
+  assert.match(engine, /\["seekforward", \(details\) => seekBy\(details\.seekOffset \?\? skipSeconds\)\]/);
+  assert.match(engine, /\["seekbackward", \(details\) => seekBy\(-\(details\.seekOffset \?\? skipSeconds\)\)\]/);
+  assert.match(engine, /URL\.createObjectURL\(current\.artwork\)/);
+  assert.match(engine, /Math\.max\(0, Math\.min\(maximum, audio\.currentTime \+ seconds\)\)/);
   assert.match(favorite, /dmplayer-haptics/);
   assert.match(css, /\.preference-card\{/);
   assert.match(css, /\.preference-segmented button\.active\{/);
+  assert.match(css, /\.performance-status\{/);
   assert.match(css, /\.preference-toggle:active\{/);
+});
+
+test("large libraries defer expensive work and render track lists in bounded batches", async () => {
+  const [player, store, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/store.ts"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(player, /const TRACK_BATCH_SIZE = 80/);
+  assert.match(player, /function IncrementalTrackList\(\{/);
+  assert.match(player, /tracks\.slice\(0, visibleCount\)/);
+  assert.match(player, /count \+ TRACK_BATCH_SIZE/);
+  assert.match(player, /useDeferredValue\(query\)/);
+  assert.match(player, /const libraryIndex = useMemo\(\(\) => \{/);
+  assert.match(player, /const albumTracks = new Map<string, Track\[\]>\(\)/);
+  assert.match(player, /const artistTracks = new Map<string, Track\[\]>\(\)/);
+  assert.match(player, /<IncrementalTrackList tracks=\{visibleSource\}/);
+  assert.match(player, /<IncrementalTrackList tracks=\{filtered\}/);
+  assert.match(store, /function waitForLibraryIdle\(\)/);
+  assert.match(store, /requestIdleCallback\(resolve, \{ timeout: 1200 \}\)/);
+  assert.match(store, /await waitForLibraryIdle\(\)/);
+  assert.match(css, /\.track-list-more\{/);
+  assert.match(css, /content-visibility:auto/);
 });
 
 test("phone full player stays inside Android visual viewport without retaining outer scroll", async () => {

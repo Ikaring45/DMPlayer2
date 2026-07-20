@@ -130,6 +130,20 @@ function announceTrackTransition(direction: "next" | "previous") {
   }
 }
 
+function waitForLibraryIdle() {
+  if (typeof window === "undefined") return Promise.resolve();
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  };
+  return new Promise<void>((resolve) => {
+    if (idleWindow.requestIdleCallback) {
+      idleWindow.requestIdleCallback(resolve, { timeout: 1200 });
+      return;
+    }
+    window.setTimeout(resolve, 24);
+  });
+}
+
 function embeddedMetadataPatch(
   track: Track,
   embedded: Awaited<ReturnType<typeof readEmbeddedMetadata>>,
@@ -211,6 +225,7 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     } catch {}
     for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed || !item.technicalParsed)) {
       try {
+        await waitForLibraryIdle();
         const audio = await db.getTrackAudio(track.id);
         if (!audio) continue;
         const embedded = await readEmbeddedMetadata(audio);

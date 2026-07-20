@@ -257,43 +257,56 @@ export function PlayerEngine({
 
   useEffect(() => {
     if (!current || !("mediaSession" in navigator)) return;
-    let cancelled = false;
-    const setSystemMetadata = async () => {
-      let artwork: MediaImage[] = [];
-      if (current.artwork) {
-        const src = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-          reader.onerror = () => resolve("");
-          reader.readAsDataURL(current.artwork!);
-        });
-        if (src) artwork = [{ src, type: current.artworkType || current.artwork.type || "image/jpeg" }];
-      }
-      if (!cancelled) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: current.title,
-          artist: current.artist,
-          album: current.album,
-          artwork,
-        });
-      }
-    };
-    void setSystemMetadata();
+    const artworkUrl = current.artwork ? URL.createObjectURL(current.artwork) : undefined;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: current.title,
+      artist: current.artist || "不明なアーティスト",
+      album: current.album || "DMPlayer2",
+      artwork: artworkUrl ? [{
+        src: artworkUrl,
+        type: current.artworkType || current.artwork?.type || "image/jpeg",
+      }] : [],
+    });
     const savedSkipSeconds = Number(localStorage.getItem("dmplayer-skip-seconds"));
     const skipSeconds = savedSkipSeconds === 15 || savedSkipSeconds === 30 ? savedSkipSeconds : 10;
+    const seekBy = (seconds: number) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const maximum = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : Number.MAX_SAFE_INTEGER;
+      audio.currentTime = Math.max(0, Math.min(maximum, audio.currentTime + seconds));
+    };
+    const previousOrRestart = () => {
+      const audio = audioRef.current;
+      if (audio && audio.currentTime > 3) {
+        audio.currentTime = 0;
+        return;
+      }
+      previous();
+    };
     const actions: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
       ["play", () => setPlaying(true)],
       ["pause", () => setPlaying(false)],
+      ["stop", () => {
+        setPlaying(false);
+        audioRef.current?.pause();
+      }],
       ["nexttrack", next],
-      ["previoustrack", previous],
-      ["seekto", (details) => { if (audioRef.current && details.seekTime != null) audioRef.current.currentTime = details.seekTime; }],
-      ["seekforward", () => { if (audioRef.current) audioRef.current.currentTime += skipSeconds; }],
-      ["seekbackward", () => { if (audioRef.current) audioRef.current.currentTime -= skipSeconds; }],
+      ["previoustrack", previousOrRestart],
+      ["seekto", (details) => {
+        const audio = audioRef.current;
+        if (!audio || details.seekTime == null) return;
+        const maximum = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : details.seekTime;
+        audio.currentTime = Math.max(0, Math.min(maximum, details.seekTime));
+      }],
+      ["seekforward", (details) => seekBy(details.seekOffset ?? skipSeconds)],
+      ["seekbackward", (details) => seekBy(-(details.seekOffset ?? skipSeconds))],
     ];
     for (const [action, handler] of actions) {
       try { navigator.mediaSession.setActionHandler(action, handler); } catch {}
     }
-    return () => { cancelled = true; };
+    return () => {
+      if (artworkUrl) URL.revokeObjectURL(artworkUrl);
+    };
   }, [audioRef, current, next, previous, setPlaying]);
 
   useEffect(() => {

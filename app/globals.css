@@ -17,24 +17,24 @@
 :root[data-theme="dark"] { --bg:#101014; --surface:rgba(29,29,35,.84); --surface-solid:#1c1c22; --text:#f6f6f8; --muted:#aaaab4; --line:rgba(255,255,255,.09); --accent:#ff5d8d; --accent-soft:#3e1d2a; --shadow:0 20px 60px rgba(0,0,0,.38);--glass-bg:rgba(34,34,44,.46);--glass-bg-strong:rgba(39,39,49,.64);--glass-line:rgba(255,255,255,.17);--glass-inner:rgba(255,255,255,.14);--glass-shadow:0 22px 58px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(255,255,255,.035);color-scheme:dark; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#101014; --surface:rgba(29,29,35,.84); --surface-solid:#1c1c22; --text:#f6f6f8; --muted:#aaaab4; --line:rgba(255,255,255,.09); --accent:#ff5d8d; --accent-soft:#3e1d2a; --shadow:0 20px 60px rgba(0,0,0,.38);--glass-bg:rgba(34,34,44,.46);--glass-bg-strong:rgba(39,39,49,.64);--glass-line:rgba(255,255,255,.17);--glass-inner:rgba(255,255,255,.14);--glass-shadow:0 22px 58px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(255,255,255,.035);color-scheme:dark; } }
 :root{
-  --player-bg:#616b7e;
-  --player-text:#fafbff;
-  --player-muted:rgba(247,248,255,.7);
-  --player-line:rgba(255,255,255,.16);
-  --player-header:linear-gradient(180deg,rgba(28,33,44,.34),rgba(28,33,44,.08) 72%,transparent);
+  --player-bg:#edf1f7;
+  --player-text:#18202d;
+  --player-muted:rgba(24,32,45,.62);
+  --player-line:rgba(28,37,52,.13);
+  --player-header:linear-gradient(180deg,rgba(248,250,254,.72),rgba(240,244,250,.24) 72%,transparent);
   --player-overlay:
-    radial-gradient(ellipse at 50% 42%,transparent 8%,rgba(18,22,31,.05) 58%,rgba(15,19,28,.14) 100%),
-    linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.025) 36%,rgba(13,17,25,.16) 100%);
-  --player-control:rgba(255,255,255,.84);
-  --player-control-active:rgba(255,255,255,.11);
-  --player-panel-bg:radial-gradient(circle at 14% -6%,rgba(255,255,255,.2),transparent 38%),linear-gradient(150deg,rgba(59,65,80,.62),rgba(25,30,40,.46));
-  --player-panel-header:linear-gradient(180deg,rgba(55,62,77,.74),rgba(35,41,53,.5));
-  --player-panel-shadow:0 24px 64px rgba(16,20,29,.2),inset 0 1px rgba(255,255,255,.2),inset 0 -1px rgba(255,255,255,.05);
-  --player-row-active:linear-gradient(100deg,color-mix(in srgb,var(--accent) 19%,rgba(50,55,69,.72)),rgba(54,48,64,.48));
-  --player-faint:rgba(255,255,255,.38);
-  --player-seek-active:rgba(255,255,255,.94);
-  --player-seek-inactive:rgba(255,255,255,.2);
-  --player-palette-filter:brightness(1.16) saturate(.88);
+    radial-gradient(ellipse at 50% 42%,rgba(255,255,255,.08) 8%,rgba(242,246,252,.26) 58%,rgba(225,231,241,.58) 100%),
+    linear-gradient(180deg,rgba(250,252,255,.3),rgba(239,243,249,.45) 36%,rgba(222,228,238,.66) 100%);
+  --player-control:rgba(24,32,45,.82);
+  --player-control-active:rgba(255,255,255,.48);
+  --player-panel-bg:radial-gradient(circle at 14% -6%,rgba(255,255,255,.82),transparent 42%),linear-gradient(150deg,rgba(250,252,255,.72),rgba(229,234,243,.58));
+  --player-panel-header:linear-gradient(180deg,rgba(251,252,255,.82),rgba(235,240,247,.62));
+  --player-panel-shadow:0 24px 64px rgba(46,58,78,.14),inset 0 1px rgba(255,255,255,.86),inset 0 -1px rgba(92,106,128,.08);
+  --player-row-active:linear-gradient(100deg,color-mix(in srgb,var(--accent) 14%,rgba(255,255,255,.72)),rgba(245,247,251,.46));
+  --player-faint:rgba(24,32,45,.38);
+  --player-seek-active:rgba(24,32,45,.9);
+  --player-seek-inactive:rgba(24,32,45,.16);
+  --player-palette-filter:brightness(1.24) saturate(.72);
 }
 :root[data-theme="dark"]{
   --player-bg:#080a0f;--player-text:#fff;--player-muted:rgba(238,239,247,.64);--player-line:rgba(255,255,255,.13);
@@ -2266,6 +2266,7 @@ button:disabled{cursor:not-allowed;opacity:.45}
   --text:var(--player-text);
   --muted:var(--player-muted);
   --line:var(--player-line);
+  --surface-solid:color-mix(in srgb,var(--player-bg) 90%,var(--player-text));
   color:var(--player-text);
   background:var(--player-bg);
 }
@@ -2322,7 +2323,35 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .now-playing .now-stage-lyrics .lyrics-toolbar>button{color:color-mix(in srgb,var(--player-text) 72%,transparent)}
 .now-playing .now-stage-lyrics .lyrics-line{color:color-mix(in srgb,var(--player-text) 31%,transparent)}
 .now-playing .now-stage-lyrics .lyrics-line.near{color:color-mix(in srgb,var(--player-text) 58%,transparent)}
-.now-playing .now-stage-lyrics .lyrics-line.current{color:var(--player-text);text-shadow:0 8px 32px color-mix(in srgb,var(--player-text) 10%,transparent)}
+.now-playing .now-stage-lyrics .lyrics-line.current{
+  color:transparent;
+  background:linear-gradient(90deg,var(--player-text) 0 var(--lyric-progress),color-mix(in srgb,var(--player-text) 54%,transparent) var(--lyric-progress) 100%);
+  background-clip:text;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 8px 32px color-mix(in srgb,var(--player-text) 10%,transparent);
+}
+.now-playing .lyrics-toolbar{background:linear-gradient(180deg,color-mix(in srgb,var(--player-bg) 72%,transparent),transparent)}
+.now-playing .lyrics-follow{border-color:var(--player-line);background:var(--player-panel-header);color:var(--player-text)}
+.now-playing .lyrics-panel .plain-lyrics,
+.now-playing .lyrics-panel .no-lyrics>strong{color:var(--player-text)}
+.now-playing .lyrics-panel .no-lyrics>span{color:var(--player-faint)}
+.now-playing .lyrics-editing .lyrics-editor textarea{border-color:var(--player-line);background:var(--player-panel-bg);color:var(--player-text)}
+
+.track-list-more{display:flex;align-items:center;justify-content:center;gap:12px;padding:16px 0 4px}
+.track-list-more button{min-height:42px;padding:0 18px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent) 8%,var(--surface-solid));color:var(--accent);font-size:12px;font-weight:720}
+.track-list-more small{color:var(--muted);font-family:var(--font-numeric);font-size:10px}
+.performance-status{display:flex;flex-direction:column;gap:5px;padding:13px 15px 15px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--accent) 4%,var(--surface-solid))}
+.performance-status span{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:720}
+.performance-status small{padding-left:15px;color:var(--muted);font-size:10px;line-height:1.5}
+.performance-dot{width:8px;height:8px;display:inline-block;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 12%,transparent)}
+.performance-dot.performance-low{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.13)}
+.preference-support{cursor:default}
+.preference-support>b{padding:5px 9px;border-radius:999px;background:color-mix(in srgb,#22a06b 12%,var(--surface-solid));color:#168355;font-size:10px}
+@supports (content-visibility:auto){
+  .album-grid>button{content-visibility:auto;contain-intrinsic-size:190px}
+  .artist-list>button,.playlist-list>div{content-visibility:auto;contain-intrinsic-size:72px}
+}
 
 /* Lightweight mode favors stable layers over expensive off-screen compositing on phones. */
 @media (max-width:759px) and (pointer:coarse){
