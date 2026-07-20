@@ -1,4 +1,4 @@
-const CACHE = "dmplayer2-shell-v8";
+const CACHE = "dmplayer2-shell-v9";
 const BUILD_ASSETS = /* __DMPLAYER_BUILD_ASSETS__ */ [];
 const SHELL = [
   "./",

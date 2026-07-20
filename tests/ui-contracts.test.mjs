@@ -176,19 +176,19 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.4.1");
+  assert.equal(packageJson.version, "0.4.2");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
   assert.match(player, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);
   assert.match(player, /window\.addEventListener\("online", onVisibilityChange\)/);
-  assert.match(player, /30 \* 60 \* 1000/);
+  assert.doesNotMatch(player, /setInterval\(\(\) => void checkInBackground\(\)/);
   assert.match(player, /waitingWorker\.postMessage\(\{ type: "SKIP_WAITING" \}\)/);
   assert.match(player, /新しいバージョンがあります/);
-  assert.match(player, /Version 0\.4\.1/);
+  assert.match(player, /Version 0\.4\.2/);
   assert.match(player, /インストール済みでも、起動時・復帰時・オンライン復帰時/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v8"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v9"/);
   assert.doesNotMatch(serviceWorker, /cache\.addAll\(SHELL\)\)\.then\(\(\) => self\.skipWaiting\(\)\)/);
   assert.match(serviceWorker, /event\.data\?\.type === "SKIP_WAITING"[\s\S]*?self\.skipWaiting\(\)/);
 });
