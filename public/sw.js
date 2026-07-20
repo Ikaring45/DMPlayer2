@@ -1,4 +1,4 @@
-const CACHE = "dmplayer2-shell-v7";
+const CACHE = "dmplayer2-shell-v8";
 const BUILD_ASSETS = /* __DMPLAYER_BUILD_ASSETS__ */ [];
 const SHELL = [
   "./",
@@ -11,7 +11,7 @@ const SHELL = [
   ...BUILD_ASSETS,
 ];
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(

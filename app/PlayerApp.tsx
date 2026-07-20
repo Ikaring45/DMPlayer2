@@ -21,6 +21,7 @@ type LibraryView = "home" | "songs" | "albums" | "album-detail" | "artists" | "a
 type TrackSort = "default" | "title" | "artist" | "album";
 type SleepTimer = { mode: "off" } | { mode: "track" } | { mode: "timer"; endsAt: number };
 type AmbientQuality = "auto" | "high" | "low";
+type AppUpdateState = "idle" | "checking" | "current" | "ready" | "unsupported";
 
 function trackBitrate(track: Track) {
   if (track.bitrate) return track.bitrate;
@@ -556,6 +557,8 @@ export default function PlayerApp() {
   const [selectedArtist, setSelectedArtist] = useState<string>();
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>();
   const [notice, setNotice] = useState("");
+  const [appUpdateState, setAppUpdateState] = useState<AppUpdateState>("idle");
+  const [updatePromptDismissed, setUpdatePromptDismissed] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [smoothScrollRequest, setSmoothScrollRequest] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -572,7 +575,39 @@ export default function PlayerApp() {
   const contentRef = useRef<HTMLElement>(null);
   const dragDepthRef = useRef(0);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  const updateRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const loadLibrary = store.load;
+  const checkForAppUpdate = useCallback(async (userInitiated = false) => {
+    const registration = updateRegistrationRef.current;
+    if (!registration) {
+      if (userInitiated) setNotice("アップデート機能を準備しています。少し待ってからお試しください。");
+      return;
+    }
+    if (userInitiated) setAppUpdateState("checking");
+    try {
+      await registration.update();
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        setAppUpdateState("ready");
+        setUpdatePromptDismissed(false);
+      } else if (!registration.installing && userInitiated) {
+        setAppUpdateState("current");
+      }
+    } catch {
+      if (userInitiated) {
+        setAppUpdateState("idle");
+        setNotice("アップデートを確認できませんでした。通信状態をご確認ください。");
+      }
+    }
+  }, []);
+  const applyAppUpdate = useCallback(() => {
+    const waitingWorker = updateRegistrationRef.current?.waiting;
+    if (!waitingWorker) {
+      void checkForAppUpdate(true);
+      return;
+    }
+    setNotice("アップデートを適用しています…");
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+  }, [checkForAppUpdate]);
   useEffect(() => {
     if (fileRef.current) fileRef.current.accept = AUDIO_FILE_ACCEPT;
   }, []);
@@ -655,39 +690,73 @@ export default function PlayerApp() {
     void loadLibrary();
   }, [loadLibrary]);
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) {
+      const frame = requestAnimationFrame(() => setAppUpdateState("unsupported"));
+      return () => cancelAnimationFrame(frame);
+    }
     let disposed = false;
     let refreshing = false;
+    let registration: ServiceWorkerRegistration | undefined;
+    let checkInterval = 0;
     const hadController = Boolean(navigator.serviceWorker.controller);
-    const activateWaitingWorker = (registration: ServiceWorkerRegistration) => {
-      registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+    const showWaitingUpdate = () => {
+      if (!registration?.waiting || !navigator.serviceWorker.controller) return false;
+      setAppUpdateState("ready");
+      setUpdatePromptDismissed(false);
+      return true;
+    };
+    const checkInBackground = async () => {
+      if (!registration || document.visibilityState !== "visible") return;
+      try {
+        await registration.update();
+        if (!disposed && !registration.installing && !showWaitingUpdate()) {
+          setAppUpdateState((state) => state === "checking" ? "current" : state);
+        }
+      } catch {
+        // Keep the installed app usable while offline and retry on the next resume.
+      }
+    };
+    const onUpdateFound = () => {
+      const worker = registration?.installing;
+      if (!worker) return;
+      worker.addEventListener("statechange", () => {
+        if (disposed) return;
+        if (worker.state === "installed") {
+          if (!showWaitingUpdate() && !navigator.serviceWorker.controller) {
+            setAppUpdateState("current");
+          }
+        } else if (worker.state === "redundant") {
+          setAppUpdateState("idle");
+        }
+      });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void checkInBackground();
     };
     const onControllerChange = () => {
       if (disposed || refreshing || !hadController) return;
       refreshing = true;
-      if (usePlayerStore.getState().playing) {
-        setNotice("アプリを更新しました。次回起動時に反映します。");
-        return;
-      }
       window.location.reload();
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-    void navigator.serviceWorker.register("./sw.js").then((registration) => {
+    void navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then((registered) => {
       if (disposed) return;
-      activateWaitingWorker(registration);
-      registration.addEventListener("updatefound", () => {
-        const worker = registration.installing;
-        worker?.addEventListener("statechange", () => {
-          if (worker.state === "installed" && navigator.serviceWorker.controller) {
-            activateWaitingWorker(registration);
-          }
-        });
-      });
-      void registration.update().catch(() => undefined);
+      registration = registered;
+      updateRegistrationRef.current = registered;
+      registered.addEventListener("updatefound", onUpdateFound);
+      document.addEventListener("visibilitychange", onVisibilityChange);
+      window.addEventListener("online", onVisibilityChange);
+      checkInterval = window.setInterval(() => void checkInBackground(), 30 * 60 * 1000);
+      if (!showWaitingUpdate()) void checkInBackground();
     }).catch(() => undefined);
     return () => {
       disposed = true;
+      if (registration) registration.removeEventListener("updatefound", onUpdateFound);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onVisibilityChange);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      if (checkInterval) window.clearInterval(checkInterval);
+      updateRegistrationRef.current = null;
     };
   }, []);
   useEffect(() => { document.documentElement.dataset.theme = store.theme; }, [store.theme]);
@@ -1012,7 +1081,7 @@ export default function PlayerApp() {
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
     <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="テーマと再生画面の描画品質" /><AppearancePreferences theme={store.theme} ambientQuality={ambientQuality} onThemeChange={store.setTheme} onAmbientQualityChange={changeAmbientQuality} /></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
-    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.4.0</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
+    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows app-update-card"><div><span>DMPlayer2</span><strong>Version 0.4.1</strong></div><button disabled={appUpdateState === "checking" || appUpdateState === "unsupported"} onClick={() => appUpdateState === "ready" ? applyAppUpdate() : void checkForAppUpdate(true)}><span className="settings-action"><UiIcon name="refresh" />アップデート</span><strong>{appUpdateState === "ready" ? store.playing ? "停止して更新" : "今すぐ更新" : appUpdateState === "checking" ? "確認中…" : appUpdateState === "current" ? "最新版" : appUpdateState === "unsupported" ? "利用不可" : "更新を確認"}</strong></button><div className="setting-note">インストール済みでも、起動時・復帰時・オンライン復帰時に新しい版を確認します。</div></div></section>
   </div>;
 
   return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`} onDragEnter={handleDragEnter} onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDragLeave={handleDragLeave} onDrop={handleDrop}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} playbackRate={playbackRate} stopAfterTrack={sleepTimer.mode === "track"} onStopAfterTrack={completeTrackSleep} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" disabled={Boolean(store.importProgress)} onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
@@ -1032,5 +1101,5 @@ export default function PlayerApp() {
     </section></div>}
     {detailTrack && <TrackDetails track={detailTrack} onClose={() => setDetailTrack(undefined)} />}
     {dragActive && <div className="drop-overlay" aria-hidden="true"><div><span><UiIcon name="add" /></span><strong>音楽をここにドロップ</strong><small>複数ファイルをまとめて追加できます</small><em>MP3 · M4A · FLAC · WAV · MIDI ほか</em></div></div>}
-    {store.importProgress ? <div className="toast import-toast" role="status" aria-live="polite" aria-atomic="true"><div><span>ライブラリへ追加中</span><strong>{store.importProgress.processed} / {store.importProgress.total}</strong></div><small>{store.importProgress.currentFile}</small><i><b style={{ width: `${store.importProgress.total ? store.importProgress.processed / store.importProgress.total * 100 : 0}%` }} /></i></div> : notice && <div className="toast" role="status" aria-live="polite" aria-atomic="true">{notice}</div>}{!store.ready && <div className="loading"><BrandMark /><p>ライブラリを準備しています</p></div>}{current && <button className="desktop-now" onClick={openNowPlaying}>再生画面を開く</button>}</main>;
+    {store.importProgress ? <div className="toast import-toast" role="status" aria-live="polite" aria-atomic="true"><div><span>ライブラリへ追加中</span><strong>{store.importProgress.processed} / {store.importProgress.total}</strong></div><small>{store.importProgress.currentFile}</small><i><b style={{ width: `${store.importProgress.total ? store.importProgress.processed / store.importProgress.total * 100 : 0}%` }} /></i></div> : appUpdateState === "ready" && !updatePromptDismissed ? <div className="toast update-toast" role="status" aria-live="polite" aria-atomic="true"><span><strong>新しいバージョンがあります</strong><small>{store.playing ? "再生を停止して更新します" : "すぐに最新版へ切り替えられます"}</small></span><button className="update-now" onClick={applyAppUpdate}>{store.playing ? "停止して更新" : "今すぐ更新"}</button><button className="update-dismiss" aria-label="アップデート通知を閉じる" onClick={() => setUpdatePromptDismissed(true)}><UiIcon name="close" /></button></div> : notice && <div className="toast" role="status" aria-live="polite" aria-atomic="true">{notice}</div>}{!store.ready && <div className="loading"><BrandMark /><p>ライブラリを準備しています</p></div>}{current && <button className="desktop-now" onClick={openNowPlaying}>再生画面を開く</button>}</main>;
 }
