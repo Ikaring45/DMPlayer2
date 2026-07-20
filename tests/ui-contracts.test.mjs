@@ -96,6 +96,77 @@ test("playback utilities provide speed, sleep timer, and sortable library views"
   assert.match(css, /\.track-sort\{/);
 });
 
+test("library import reports progress, handles drops, and preserves useful outcomes", async () => {
+  const [player, store, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/store.ts"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(store, /export type ImportProgress/);
+  assert.match(store, /export type ImportSummary/);
+  assert.match(store, /duplicates:\s*number/);
+  assert.match(store, /unsupported:\s*number/);
+  assert.match(store, /quotaExceeded:\s*boolean/);
+  assert.match(store, /createContentHash\(sourceData\)/);
+  assert.match(store, /file\.slice\(0,\s*12\)\.arrayBuffer\(\)/);
+  assert.match(store, /appendUniqueIds\(state\.queue,\s*addedIds\)/);
+  assert.match(player, /onDragEnter=\{handleDragEnter\}/);
+  assert.match(player, /className="drop-overlay"/);
+  assert.match(player, /className="toast import-toast"/);
+  assert.match(css, /\.drop-overlay\{/);
+  assert.match(css, /\.import-toast>i>b\{/);
+});
+
+test("search normalizes queries, filters by listening context, and owns its playback queue", async () => {
+  const [player, library, css] = await Promise.all([
+    source("../app/PlayerApp.tsx"),
+    source("../app/lib/library.ts"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(library, /\.normalize\("NFKC"\)/);
+  assert.match(library, /tokens\.every\(\(token\) => haystack\.includes\(token\)\)/);
+  assert.match(player, /type TrackSearchFilter/);
+  assert.match(player, /\["favorites", "お気に入り"\]/);
+  assert.match(player, /\["lossless", "ロスレス"\]/);
+  assert.match(player, /\["hires", "ハイレゾ"\]/);
+  assert.match(player, /source=\{filteredIds\}/);
+  assert.match(player, /aria-label="ライブラリを検索"/);
+  assert.match(css, /\.search-filters\{/);
+  assert.match(css, /\.search-discovery-grid\{/);
+});
+
+test("large local files expose loading state across every player surface", async () => {
+  const [engine, player, tablet, store, css] = await Promise.all([
+    source("../app/components/PlayerEngine.tsx"),
+    source("../app/PlayerApp.tsx"),
+    source("../app/components/TabletPlayer.tsx"),
+    source("../app/store.ts"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(store, /export type PlaybackStatus = "idle" \| "loading" \| "ready" \| "playing" \| "error"/);
+  assert.match(engine, /onLoadStart=\{\(\) => setPlaybackStatus\("loading"\)\}/);
+  assert.match(engine, /onWaiting=\{\(\) => setPlaybackStatus\("loading"\)\}/);
+  assert.match(engine, /onPlaying=\{\(\) => setPlaybackStatus\("playing"\)\}/);
+  assert.match(player, /className="playback-spinner"/);
+  assert.match(tablet, /playbackStatus === "loading"/);
+  assert.match(css, /\.playback-spinner\{/);
+});
+
+test("mobile playback stays on the native media pipeline in the background", async () => {
+  const engine = await source("../app/components/PlayerEngine.tsx");
+
+  assert.match(engine, /function needsNativeMediaPlayback\(\)/);
+  assert.match(engine, /\/iPad\|iPhone\|iPod\/\.test\(navigator\.userAgent\)/);
+  assert.match(engine, /navigator\.platform === "MacIntel"[\s\S]*?navigator\.maxTouchPoints > 1/);
+  assert.match(engine, /userAgentData\?: \{ mobile\?: boolean \}/);
+  assert.match(engine, /Android\|webOS\|BlackBerry\|IEMobile\|Opera Mini\|Mobile\|Tablet/);
+  assert.match(engine, /matchMedia\?\.\("\(pointer: coarse\)"\)\.matches === true/);
+  assert.match(engine, /if \(needsNativeMediaPlayback\(\)\) return;[\s\S]*?new Context\(\)/);
+});
+
 test("full player artist and favorite controls retain their interactive routes", async () => {
   const [player, favorite, tablet] = await Promise.all([
     source("../app/PlayerApp.tsx"),

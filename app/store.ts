@@ -2,11 +2,36 @@
 
 import { create } from "zustand";
 import * as db from "./lib/db";
-import { getAudioMimeType, isAudioFile } from "./lib/audio-formats";
+import { getAudioMimeType, isAudioFile, isFlacData, isWavData } from "./lib/audio-formats";
+import {
+  appendUniqueIds,
+  clampNumber,
+  createContentHash,
+  insertNextId,
+  moveQueueId,
+  sanitizeIdList,
+} from "./lib/library";
 import { parseLrc } from "./lib/lyrics";
 import { readEmbeddedMetadata } from "./lib/metadata";
 import { isMidiFile, renderMidiToWav, type MidiInfo } from "./lib/midi";
 import type { Playlist, RepeatMode, ThemeMode, Track } from "./types";
+
+export type ImportProgress = {
+  total: number;
+  processed: number;
+  currentFile: string;
+};
+
+export type ImportSummary = {
+  requested: number;
+  added: number;
+  duplicates: number;
+  unsupported: number;
+  failed: number;
+  quotaExceeded: boolean;
+};
+
+export type PlaybackStatus = "idle" | "loading" | "ready" | "playing" | "error";
 
 type AppState = {
   tracks: Track[];
@@ -15,6 +40,7 @@ type AppState = {
   originalQueue: string[];
   currentId?: string;
   playing: boolean;
+  playbackStatus: PlaybackStatus;
   shuffle: boolean;
   repeat: RepeatMode;
   volume: number;
@@ -22,13 +48,15 @@ type AppState = {
   eqEnabled: boolean;
   eqBands: number[];
   ready: boolean;
+  importProgress?: ImportProgress;
   load: () => Promise<void>;
-  addFiles: (files: File[]) => Promise<number>;
+  addFiles: (files: File[]) => Promise<ImportSummary>;
   updateTrack: (id: string, patch: Partial<Track>) => Promise<void>;
   deleteTrack: (id: string) => Promise<void>;
   clear: () => Promise<void>;
   playTrack: (id: string, source?: string[]) => void;
   setPlaying: (playing: boolean) => void;
+  setPlaybackStatus: (status: PlaybackStatus) => void;
   next: () => void;
   previous: () => void;
   addNext: (id: string) => void;
@@ -131,7 +159,7 @@ function embeddedMetadataPatch(
 }
 
 export const usePlayerStore = create<AppState>((set, get) => ({
-  tracks: [], playlists: [], queue: [], originalQueue: [], playing: false, shuffle: false,
+  tracks: [], playlists: [], queue: [], originalQueue: [], playing: false, playbackStatus: "idle", shuffle: false,
   repeat: "off", volume: 1, theme: "system", eqEnabled: false, eqBands: [0, 0, 0, 0, 0], ready: false,
   load: async () => {
     try {
@@ -147,25 +175,39 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     tracks.sort((a, b) => b.createdAt - a.createdAt);
     const ids = tracks.map((track) => track.id);
     const valid = new Set(ids);
-    const restoredQueue = session?.queue.filter((id) => valid.has(id)) ?? [];
-    const restoredOriginal = session?.originalQueue.filter((id) => valid.has(id)) ?? [];
-    const currentId = session?.currentId && valid.has(session.currentId) ? session.currentId : undefined;
+    const hasSession = Boolean(session && typeof session === "object");
+    const currentId = typeof session?.currentId === "string" && valid.has(session.currentId)
+      ? session.currentId
+      : undefined;
+    const restoredQueue = sanitizeIdList(session?.queue, valid);
+    const restoredOriginal = sanitizeIdList(session?.originalQueue, valid);
+    if (currentId && !restoredQueue.includes(currentId)) restoredQueue.unshift(currentId);
+    if (currentId && !restoredOriginal.includes(currentId)) restoredOriginal.unshift(currentId);
+    const safeTheme: ThemeMode = theme === "light" || theme === "dark" || theme === "system"
+      ? theme
+      : "system";
+    const safeEqBands = Array.isArray(eqBands) && eqBands.length === 5
+      ? eqBands.map((gain) => clampNumber(gain, 0, -12, 12))
+      : [0, 0, 0, 0, 0];
+    const safeRepeat: RepeatMode = session?.repeat === "all" || session?.repeat === "one"
+      ? session.repeat
+      : "off";
     set({
       tracks,
       playlists,
-      queue: restoredQueue.length ? restoredQueue : ids,
-      originalQueue: restoredOriginal.length ? restoredOriginal : ids,
+      queue: hasSession ? restoredQueue : ids,
+      originalQueue: hasSession ? restoredOriginal : ids,
       currentId,
-      shuffle: session?.shuffle ?? false,
-      repeat: session?.repeat ?? "off",
-      volume,
-      theme,
-      eqEnabled,
-      eqBands: eqBands.length === 5 ? eqBands : [0, 0, 0, 0, 0],
+      shuffle: session?.shuffle === true,
+      repeat: safeRepeat,
+      volume: clampNumber(volume, 1, 0, 1),
+      theme: safeTheme,
+      eqEnabled: eqEnabled === true,
+      eqBands: safeEqBands,
       ready: true,
     });
     try {
-      localStorage.setItem("dmplayer2:theme", theme);
+      localStorage.setItem("dmplayer2:theme", safeTheme);
     } catch {}
     for (const track of tracks.filter((item) => !item.metadataParsed || !item.lyricsParsed || !item.technicalParsed)) {
       try {
@@ -193,75 +235,156 @@ export const usePlayerStore = create<AppState>((set, get) => ({
     }
   },
   addFiles: async (files) => {
-    const supported = files.filter(isAudioFile);
+    if (get().importProgress) {
+      return {
+        requested: files.length,
+        added: 0,
+        duplicates: 0,
+        unsupported: 0,
+        failed: files.length,
+        quotaExceeded: false,
+      };
+    }
     const existing = get().tracks;
     const added: Track[] = [];
-    const knownFiles = new Set(existing.map((track) => (
-      `${track.fileName}\u0000${track.sourceFileSize ?? track.fileSize}`
-    )));
-    for (const file of supported) {
+    const knownFiles = new Map(existing.map((track) => [
+      `${track.fileName}\u0000${track.sourceFileSize ?? track.fileSize}`,
+      track.contentHash,
+    ]));
+    const knownHashes = new Set(existing.flatMap((track) => track.contentHash ? [track.contentHash] : []));
+    const summary: ImportSummary = {
+      requested: files.length,
+      added: 0,
+      duplicates: 0,
+      unsupported: 0,
+      failed: 0,
+      quotaExceeded: false,
+    };
+    set({ importProgress: { total: files.length, processed: 0, currentFile: files[0]?.name ?? "" } });
+    for (const [index, file] of files.entries()) {
+      set({ importProgress: { total: files.length, processed: index, currentFile: file.name } });
       const fileKey = `${file.name}\u0000${file.size}`;
-      if (knownFiles.has(fileKey)) continue;
-      const stem = file.name.replace(/\.[^.]+$/, "");
-      const [artist, ...titleParts] = stem.split(" - ");
-      const title = titleParts.length ? titleParts.join(" - ") : artist;
-      let embedded: Partial<Awaited<ReturnType<typeof readEmbeddedMetadata>>> & { midi?: MidiInfo } = {};
-      let audioData = await file.arrayBuffer();
-      let fileType = getAudioMimeType(file.name, file.type);
-      if (isMidiFile(file.name, file.type)) {
-        const rendered = await renderMidiToWav(audioData);
-        audioData = rendered.audioData;
-        fileType = "audio/wav";
-        embedded = { title: rendered.title, duration: rendered.duration, midi: rendered.midi };
-      } else {
-        try {
-          embedded = await readEmbeddedMetadata(file);
-        } catch {
-          // A playable file can still be added when it has malformed or unsupported tags.
+      try {
+        let wavData = false;
+        let flacData = false;
+        if (!isAudioFile(file)) {
+          const header = await file.slice(0, 12).arrayBuffer();
+          wavData = isWavData(header);
+          flacData = isFlacData(header);
+          if (!wavData && !flacData) {
+            summary.unsupported += 1;
+            continue;
+          }
         }
+        const sourceData = await file.arrayBuffer();
+        wavData ||= isWavData(sourceData);
+        flacData ||= isFlacData(sourceData);
+        const contentHash = await createContentHash(sourceData);
+        const knownFileHash = knownFiles.get(fileKey);
+        const duplicateByHash = Boolean(contentHash && knownHashes.has(contentHash));
+        const duplicateByLegacyKey = knownFiles.has(fileKey)
+          && (!contentHash || !knownFileHash || contentHash === knownFileHash);
+        if (duplicateByHash || duplicateByLegacyKey) {
+          summary.duplicates += 1;
+          continue;
+        }
+        const stem = file.name.replace(/\.[^.]+$/, "");
+        const [artist, ...titleParts] = stem.split(" - ");
+        const title = titleParts.length ? titleParts.join(" - ") : artist;
+        let embedded: Partial<Awaited<ReturnType<typeof readEmbeddedMetadata>>> & { midi?: MidiInfo } = {};
+        let audioData = sourceData;
+        let fileType = wavData
+          ? "audio/wav"
+          : flacData
+            ? "audio/flac"
+            : getAudioMimeType(file.name, file.type);
+        if (isMidiFile(file.name, file.type)) {
+          const rendered = await renderMidiToWav(audioData);
+          audioData = rendered.audioData;
+          fileType = "audio/wav";
+          embedded = { title: rendered.title, duration: rendered.duration, midi: rendered.midi };
+        } else {
+          try {
+            embedded = await readEmbeddedMetadata(file);
+          } catch {
+            // A playable file can still be added when it has malformed or unsupported tags.
+          }
+        }
+        const storedBlob = new Blob([audioData], { type: fileType });
+        const now = Date.now();
+        const track: Track = {
+          id: createId(),
+          title: embedded.title || title,
+          artist: embedded.artist || (titleParts.length ? artist : "不明なアーティスト"),
+          album: embedded.album || "不明なアルバム",
+          duration: embedded.duration,
+          artwork: embedded.artwork,
+          artworkData: embedded.artworkData,
+          artworkType: embedded.artworkType,
+          lyrics: embedded.lyrics,
+          syncedLyrics: embedded.syncedLyrics,
+          codec: embedded.codec,
+          container: embedded.container,
+          bitrate: embedded.bitrate,
+          sampleRate: embedded.sampleRate,
+          channels: embedded.channels,
+          bitsPerSample: embedded.bitsPerSample,
+          lossless: embedded.lossless,
+          lyricsParsed: embedded.lyricsParsed ?? true,
+          metadataParsed: true,
+          technicalParsed: true,
+          fileName: file.name,
+          fileType,
+          fileSize: audioData.byteLength,
+          sourceFileSize: file.size,
+          contentHash,
+          blob: storedBlob,
+          audioData,
+          favorite: false,
+          playCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await db.saveTrack(track);
+        const { blob, audioData: storedAudioData, ...metadataTrack } = track;
+        void blob;
+        void storedAudioData;
+        added.push(metadataTrack);
+        summary.added += 1;
+        knownFiles.set(fileKey, contentHash);
+        if (contentHash) knownHashes.add(contentHash);
+      } catch (error) {
+        summary.failed += 1;
+        console.error(`Audio import failed: ${file.name}`, error);
+        if (error instanceof DOMException && error.name === "QuotaExceededError") {
+          summary.quotaExceeded = true;
+          break;
+        }
+      } finally {
+        set({ importProgress: { total: files.length, processed: index + 1, currentFile: file.name } });
       }
-      const storedBlob = new Blob([audioData], { type: fileType });
-      const track: Track = {
-        id: createId(),
-        title: embedded.title || title,
-        artist: embedded.artist || (titleParts.length ? artist : "不明なアーティスト"),
-        album: embedded.album || "不明なアルバム",
-        duration: embedded.duration,
-        artwork: embedded.artwork,
-        artworkData: embedded.artworkData,
-        artworkType: embedded.artworkType,
-        lyrics: embedded.lyrics,
-        syncedLyrics: embedded.syncedLyrics,
-        codec: embedded.codec,
-        container: embedded.container,
-        bitrate: embedded.bitrate,
-        sampleRate: embedded.sampleRate,
-        channels: embedded.channels,
-        bitsPerSample: embedded.bitsPerSample,
-        lossless: embedded.lossless,
-        lyricsParsed: embedded.lyricsParsed ?? true,
-        metadataParsed: true,
-        technicalParsed: true,
-        fileName: file.name, fileType, fileSize: audioData.byteLength, sourceFileSize: file.size,
-        blob: storedBlob, audioData, favorite: false, playCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
-      };
-      await db.saveTrack(track);
-      const { blob, audioData: storedAudioData, ...metadataTrack } = track;
-      void blob;
-      void storedAudioData;
-      added.push(metadataTrack);
-      knownFiles.add(fileKey);
     }
-    const tracks = [...added, ...existing];
-    const ids = tracks.map((track) => track.id);
-    set({ tracks, queue: ids, originalQueue: ids });
+    set((state) => {
+      const tracks = [...added, ...state.tracks];
+      const addedIds = added.map((track) => track.id);
+      const allIds = tracks.map((track) => track.id);
+      return {
+        tracks,
+        queue: state.queue.length ? appendUniqueIds(state.queue, addedIds) : allIds,
+        originalQueue: state.originalQueue.length
+          ? appendUniqueIds(state.originalQueue, addedIds)
+          : allIds,
+        importProgress: undefined,
+      };
+    });
     persistSession(get());
-    return added.length;
+    return summary;
   },
   updateTrack: async (id, patch) => {
     const updatedAt = Date.now();
     const normalizedPatch: Partial<Track> = { ...patch, updatedAt };
     if (typeof patch.lyrics === "string") normalizedPatch.syncedLyrics = parseLrc(patch.lyrics);
+    const previous = get().tracks.find((item) => item.id === id);
     set((state) => ({
       tracks: state.tracks.map((item) => (
         item.id === id ? { ...item, ...normalizedPatch } : item
@@ -278,6 +401,13 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       }
     } catch (error) {
       console.error(`Track update could not be saved: ${id}`, error);
+      if (previous) {
+        set((state) => ({
+          tracks: state.tracks.map((item) => (
+            item.id === id && item.updatedAt === updatedAt ? previous : item
+          )),
+        }));
+      }
       window.dispatchEvent(new CustomEvent("dmplayer:notice", {
         detail: "曲情報の変更を保存できませんでした。",
       }));
@@ -291,28 +421,32 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       ...playlist,
       trackIds: playlist.trackIds.filter((trackId) => trackId !== id),
     }));
-    set({ tracks, playlists, queue, originalQueue: get().originalQueue.filter((trackId) => trackId !== id), currentId: get().currentId === id ? undefined : get().currentId, playing: get().currentId === id ? false : get().playing });
+    set({ tracks, playlists, queue, originalQueue: get().originalQueue.filter((trackId) => trackId !== id), currentId: get().currentId === id ? undefined : get().currentId, playing: get().currentId === id ? false : get().playing, playbackStatus: get().currentId === id ? "idle" : get().playbackStatus });
     persistSession(get());
   },
-  clear: async () => { await db.clearLibrary(); set({ tracks: [], playlists: [], queue: [], originalQueue: [], currentId: undefined, playing: false }); persistSession(get()); },
+  clear: async () => { await db.clearLibrary(); set({ tracks: [], playlists: [], queue: [], originalQueue: [], currentId: undefined, playing: false, playbackStatus: "idle" }); persistSession(get()); },
   playTrack: (id, source) => {
+    const ids = source ?? get().tracks.map((track) => track.id);
+    const queue = get().shuffle ? shuffleIds(ids, id) : ids;
     if (get().currentId === id) {
-      set({ playing: true });
+      set({
+        playing: true,
+        playbackStatus: "loading",
+        ...(source ? { queue, originalQueue: ids } : {}),
+      });
       persistSession(get());
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("dmplayer:play-request", { detail: { id } }));
       }
       return;
     }
-    const ids = source ?? get().tracks.map((track) => track.id);
-    const queue = get().shuffle ? shuffleIds(ids, id) : ids;
     const previousId = get().currentId;
     if (previousId && previousId !== id) {
       const previousIndex = ids.indexOf(previousId);
       const nextIndex = ids.indexOf(id);
       announceTrackTransition(previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? "previous" : "next");
     }
-    set({ currentId: id, queue, originalQueue: ids, playing: true });
+    set({ currentId: id, queue, originalQueue: ids, playing: true, playbackStatus: "loading" });
     persistSession(get());
     const track = get().tracks.find((item) => item.id === id);
     if (track && typeof window !== "undefined") {
@@ -321,7 +455,11 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       }));
     }
   },
-  setPlaying: (playing) => set({ playing }),
+  setPlaying: (playing) => set({
+    playing,
+    playbackStatus: playing ? "loading" : get().currentId ? "ready" : "idle",
+  }),
+  setPlaybackStatus: (playbackStatus) => set({ playbackStatus }),
   next: () => {
     const id = nextFrom(get(), 1);
     if (!id) {
@@ -330,33 +468,52 @@ export const usePlayerStore = create<AppState>((set, get) => ({
       return;
     }
     if (id !== get().currentId) announceTrackTransition("next");
-    set({ currentId: id, playing: true });
+    set({ currentId: id, playing: true, playbackStatus: "loading" });
     persistSession(get());
   },
-  previous: () => { const id = nextFrom(get(), -1); if (id) { if (id !== get().currentId) announceTrackTransition("previous"); set({ currentId: id, playing: true }); persistSession(get()); } },
-  addNext: (id) => { const { queue, currentId } = get(); const clean = queue.filter((item) => item !== id); const index = Math.max(0, clean.indexOf(currentId ?? "")); clean.splice(index + 1, 0, id); set({ queue: clean }); persistSession(get()); },
-  addToQueue: (id) => { if (!get().queue.includes(id)) { set({ queue: [...get().queue, id] }); persistSession(get()); } },
+  previous: () => { const id = nextFrom(get(), -1); if (id) { if (id !== get().currentId) announceTrackTransition("previous"); set({ currentId: id, playing: true, playbackStatus: "loading" }); persistSession(get()); } },
+  addNext: (id) => {
+    const { queue, originalQueue, currentId } = get();
+    set({
+      queue: insertNextId(queue, id, currentId),
+      originalQueue: insertNextId(originalQueue, id, currentId),
+    });
+    persistSession(get());
+  },
+  addToQueue: (id) => {
+    const queue = appendUniqueIds(get().queue, [id]);
+    const originalQueue = appendUniqueIds(get().originalQueue, [id]);
+    if (queue.length === get().queue.length && originalQueue.length === get().originalQueue.length) return;
+    set({ queue, originalQueue });
+    persistSession(get());
+  },
   moveQueueItem: (from, to) => {
-    const queue = [...get().queue];
-    if (from < 0 || to < 0 || from >= queue.length || to >= queue.length || from === to) return;
-    const [item] = queue.splice(from, 1);
-    queue.splice(to, 0, item);
-    set({ queue });
+    const queue = moveQueueId(get().queue, from, to);
+    if (queue === get().queue) return;
+    set({ queue, originalQueue: queue });
     persistSession(get());
   },
   removeFromQueue: (id) => {
     if (id === get().currentId) return;
-    set({ queue: get().queue.filter((item) => item !== id) });
+    set({
+      queue: get().queue.filter((item) => item !== id),
+      originalQueue: get().originalQueue.filter((item) => item !== id),
+    });
     persistSession(get());
   },
   clearUpcoming: () => {
     const currentId = get().currentId;
-    set({ queue: currentId ? [currentId] : [] });
+    const queue = currentId ? [currentId] : [];
+    set({ queue, originalQueue: queue });
     persistSession(get());
   },
   toggleShuffle: () => { const enabled = !get().shuffle; set({ shuffle: enabled, queue: enabled ? shuffleIds(get().originalQueue, get().currentId) : get().originalQueue }); persistSession(get()); },
   cycleRepeat: () => { set({ repeat: get().repeat === "off" ? "all" : get().repeat === "all" ? "one" : "off" }); persistSession(get()); },
-  setVolume: (volume) => { set({ volume }); void db.saveSetting("volume", volume); },
+  setVolume: (volume) => {
+    const safeVolume = clampNumber(volume, 1, 0, 1);
+    set({ volume: safeVolume });
+    void db.saveSetting("volume", safeVolume);
+  },
   setTheme: (theme) => {
     set({ theme });
     try {

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const publicBasePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const shareImageUrl = "https://ikaring45.github.io/DMPlayer2/og.png";
+const shareImageUrl = "https://ikaring45.github.io/DMPlayer2/og-2026.png";
 
 export const metadata: Metadata = {
   title: "DMPlayer2 — ローカルミュージックプレーヤー",
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
     description: "音源を外部へ送らず、iPhoneとiPadで楽しめるローカルミュージックプレーヤー。",
     images: [{
       url: shareImageUrl,
-      width: 1731,
-      height: 909,
-      alt: "DMPlayer2のオーディオビジュアライザー",
+      width: 1732,
+      height: 908,
+      alt: "DMPlayer2のローカル・ロスレス音楽プレーヤー",
     }],
   },
   twitter: {
@@ -41,9 +41,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  minimumScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f7f7fb" },
     { media: "(prefers-color-scheme: dark)", color: "#101014" },
@@ -57,7 +54,7 @@ const viewportBootstrap = `(() => {
       document.documentElement.dataset.theme = theme;
     }
   } catch {}
-  const content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+  const content = 'width=device-width, initial-scale=1, viewport-fit=cover';
   const normalize = () => {
     const tags = [...document.querySelectorAll('meta[name="viewport"]')];
     if (!tags.length) return;

@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import { getAudioMimeType } from "./audio-formats";
+import { getAudioMimeType, isFlacData, isWavData } from "./audio-formats";
 import type { Playlist, Track } from "../types";
 
 type PersistedTrack = Omit<Track, "blob" | "audioData" | "artwork">;
@@ -240,7 +240,14 @@ export async function getTrackAudio(id: string): Promise<Blob | undefined> {
   const stored = await db.get("audio", id);
   if (stored) {
     const data = await binaryData(stored.data, stored.data);
-    if (data) return new Blob([data], { type: stored.fileType || "application/octet-stream" });
+    if (data) {
+      const fileType = isWavData(data)
+        ? "audio/wav"
+        : isFlacData(data)
+          ? "audio/flac"
+          : stored.fileType || "application/octet-stream";
+      return new Blob([data], { type: fileType });
+    }
   }
 
   const migrated = await migrateTrackById(db, id);

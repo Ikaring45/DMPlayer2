@@ -15,6 +15,7 @@ export function TabletPlayer({
 }) {
   const store = usePlayerStore();
   const track = store.tracks.find((item) => item.id === store.currentId);
+  const loading = store.playbackStatus === "loading";
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const seekingRef = useRef(false);
@@ -46,7 +47,7 @@ export function TabletPlayer({
   };
 
   if (!track) {
-    return <aside className="ipad-player empty"><span><UiIcon name="artwork" /></span><strong>曲を選択</strong></aside>;
+    return <aside className="ipad-player empty"><span><UiIcon name="artwork" /></span><strong>曲を選択</strong><small>ライブラリから曲を選ぶと、ここに再生情報が表示されます。</small></aside>;
   }
 
   return (
@@ -54,7 +55,7 @@ export function TabletPlayer({
       <header><span>NOW PLAYING</span><button className="ipad-expand" onClick={onOpen} aria-label="再生画面を拡大"><UiIcon name="expand" /></button></header>
       <button className="ipad-art" onClick={onOpen}><Artwork track={track} size="medium" /></button>
       <div className="ipad-track-info">
-        <div><strong>{track.title}</strong><small>{track.artist} · {track.album}</small></div>
+        <div><strong>{track.title}</strong><small>{loading ? "音源を読み込み中…" : `${track.artist} · ${track.album}`}</small></div>
         <FavoriteButton
           favorite={track.favorite}
           onToggle={() => void store.updateTrack(track.id, { favorite: !track.favorite })}
@@ -82,16 +83,16 @@ export function TabletPlayer({
       <div className="ipad-controls">
         <button onClick={store.previous} aria-label="前の曲">|◀</button>
         <button
-          className="ipad-play"
+          className={`ipad-play ${loading ? "is-loading" : ""}`}
           onClick={() => store.playing ? store.setPlaying(false) : store.playTrack(track.id, store.queue)}
-          aria-label={store.playing ? "一時停止" : "再生"}
-        >{store.playing ? "Ⅱ" : "▶"}</button>
+          aria-label={loading ? "読み込み中" : store.playing ? "一時停止" : "再生"}
+        >{loading ? <i className="playback-spinner" /> : store.playing ? "Ⅱ" : "▶"}</button>
         <button onClick={store.next} aria-label="次の曲">▶|</button>
       </div>
       <div className="ipad-player-status">
-        <button className={store.shuffle ? "active" : ""} onClick={store.toggleShuffle}>シャッフル</button>
+        <button className={store.shuffle ? "active" : ""} aria-pressed={store.shuffle} onClick={store.toggleShuffle}>シャッフル</button>
         <span>{store.eqEnabled ? "EQ ON" : "EQ OFF"}</span>
-        <button className={store.repeat !== "off" ? "active" : ""} onClick={store.cycleRepeat}>リピート {store.repeat === "one" ? "1" : ""}</button>
+        <button className={store.repeat !== "off" ? "active" : ""} aria-pressed={store.repeat !== "off"} onClick={store.cycleRepeat}>リピート {store.repeat === "one" ? "1" : ""}</button>
       </div>
       {track.midi && <div className="ipad-midi-card">
         <header><span>MIDI ENGINE</span><b>44.1 kHz · STEREO</b></header>

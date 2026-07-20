@@ -24,7 +24,7 @@ test("server-renders the DMPlayer2 application shell", async () => {
   assert.match(html, /aria-label="メインナビゲーション"/);
   const viewportTags = html.match(/<meta\b[^>]*name="viewport"[^>]*>/gi) ?? [];
   assert.equal(viewportTags.length, 1);
-  assert.match(viewportTags[0], /user-scalable=no/i);
+  assert.doesNotMatch(viewportTags[0], /user-scalable=no|maximum-scale=1/i);
   assert.match(html, /viewport-fit=cover/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

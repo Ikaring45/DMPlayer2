@@ -5,6 +5,23 @@ import { getAudioFormatLabel } from "../lib/audio-formats";
 import * as db from "../lib/db";
 import { usePlayerStore } from "../store";
 
+function needsNativeMediaPlayback() {
+  const navigation = navigator as Navigator & {
+    userAgentData?: { mobile?: boolean };
+  };
+  const appleMobileDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const ipadWithDesktopUserAgent = navigator.platform === "MacIntel"
+    && navigator.maxTouchPoints > 1;
+  const mobileUserAgent = /Android|webOS|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i
+    .test(navigator.userAgent);
+  const coarsePrimaryPointer = window.matchMedia?.("(pointer: coarse)").matches === true;
+  return navigation.userAgentData?.mobile === true
+    || appleMobileDevice
+    || ipadWithDesktopUserAgent
+    || mobileUserAgent
+    || coarsePrimaryPointer;
+}
+
 export function PlayerEngine({
   audioRef,
   playbackRate = 1,
@@ -16,7 +33,7 @@ export function PlayerEngine({
   stopAfterTrack?: boolean;
   onStopAfterTrack?: () => void;
 }) {
-  const { tracks, currentId, volume, playing, repeat, eqEnabled, eqBands, setPlaying, updateTrack, next, previous } = usePlayerStore();
+  const { tracks, currentId, volume, playing, repeat, eqEnabled, eqBands, setPlaying, setPlaybackStatus, updateTrack, next, previous } = usePlayerStore();
   const current = tracks.find((track) => track.id === currentId);
   const lastId = useRef<string | undefined>(undefined);
   const activeUrl = useRef<string | undefined>(undefined);
@@ -69,6 +86,12 @@ export function PlayerEngine({
   const ensureAudioGraph = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || audioContext.current) return;
+    // Once a media element is connected to Web Audio, its sound is routed only
+    // through the AudioContext. Mobile browsers can suspend that context when
+    // the app is backgrounded even though the media element keeps reporting
+    // playback. Keep the native media pipeline on phones and tablets so audio
+    // remains audible from the lock screen and while using another app.
+    if (needsNativeMediaPlayback()) return;
     const Context = window.AudioContext
       || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Context) return;
@@ -112,9 +135,11 @@ export function PlayerEngine({
     lastId.current = undefined;
     countedId.current = undefined;
     stopVisualizer();
+    usePlayerStore.getState().setPlaybackStatus("idle");
   }, [audioRef, stopVisualizer]);
 
   const loadTrackAudio = useCallback(async (id: string, autoplay: boolean) => {
+    usePlayerStore.getState().setPlaybackStatus("loading");
     const generation = ++loadGeneration.current;
     const audioAtStart = audioRef.current;
     if (audioAtStart && lastId.current && lastId.current !== id) {
@@ -150,6 +175,7 @@ export function PlayerEngine({
       lastId.current = undefined;
       stopVisualizer();
       usePlayerStore.getState().setPlaying(false);
+      usePlayerStore.getState().setPlaybackStatus("error");
       window.dispatchEvent(new CustomEvent("dmplayer:notice", {
         detail: "音源データを読み込めませんでした。曲を追加し直してください。",
       }));
@@ -301,6 +327,7 @@ export function PlayerEngine({
       playsInline
       onPlay={() => {
         setPlaying(true);
+        setPlaybackStatus("playing");
         startVisualizer();
         const id = lastId.current;
         if (!id || countedId.current === id) return;
@@ -320,9 +347,17 @@ export function PlayerEngine({
           return;
         }
         setPlaying(false);
+        setPlaybackStatus(usePlayerStore.getState().currentId ? "ready" : "idle");
       }}
+      onLoadStart={() => setPlaybackStatus("loading")}
+      onWaiting={() => setPlaybackStatus("loading")}
+      onCanPlay={() => {
+        if (!usePlayerStore.getState().playing) setPlaybackStatus("ready");
+      }}
+      onPlaying={() => setPlaybackStatus("playing")}
       onError={() => {
         setPlaying(false);
+        setPlaybackStatus("error");
         if (current) {
           const format = getAudioFormatLabel(current.fileName, current.fileType);
           window.dispatchEvent(new CustomEvent("dmplayer:notice", {
