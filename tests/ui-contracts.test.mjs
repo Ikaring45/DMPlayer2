@@ -192,7 +192,9 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
   assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v10"/);
-  assert.doesNotMatch(serviceWorker, /cache\.addAll\(SHELL\)\)\.then\(\(\) => self\.skipWaiting\(\)\)/);
+  assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
+  assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
+  assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
   assert.match(serviceWorker, /event\.data\?\.type === "SKIP_WAITING"[\s\S]*?self\.skipWaiting\(\)/);
 });
 

@@ -1,4 +1,5 @@
 const CACHE = "dmplayer2-shell-v10";
+const LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7";
 const BUILD_ASSETS = /* __DMPLAYER_BUILD_ASSETS__ */ [];
 const SHELL = [
   "./",
@@ -11,7 +12,12 @@ const SHELL = [
   ...BUILD_ASSETS,
 ];
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .then(() => caches.has(LEGACY_CACHE_WITHOUT_UPDATE_UI))
+      .then((legacyAppInstalled) => legacyAppInstalled ? self.skipWaiting() : undefined),
+  );
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(
