@@ -6,7 +6,7 @@ import { Artwork, BrandMark, JukeboxArtwork, NavIcon, PlayerControlIcon, UiIcon,
 import { Equalizer } from "./components/Equalizer";
 import { TabletPlayer } from "./components/TabletPlayer";
 import { MidiStudio } from "./components/MidiStudio";
-import { AnimatedAlbumBackground } from "./components/AnimatedAlbumBackground";
+import { AnimatedAlbumBackground, resolveAutomaticQuality } from "./components/AnimatedAlbumBackground";
 import { FavoriteButton } from "./components/FavoriteButton";
 import { LyricsPanel } from "./components/LyricsPanel";
 import { SidebarLibrary } from "./components/SidebarLibrary";
@@ -352,9 +352,9 @@ function AppearancePreferences({
       </div>
     </div>
     <div className="preference-row preference-choice">
-      <div><strong>背景エフェクト</strong><small>再生画面の動きと描画負荷</small></div>
-      <div className="preference-segmented" role="group" aria-label="背景エフェクト品質">
-        {(["auto", "high", "low"] as const).map((quality) => <button className={ambientQuality === quality ? "active" : ""} key={quality} aria-pressed={ambientQuality === quality} onClick={() => onAmbientQualityChange(quality)}>{quality === "auto" ? "自動" : quality === "high" ? "高" : "省電力"}</button>)}
+      <div><strong>描画パフォーマンス</strong><small>端末ごとの動きと電池消費</small></div>
+      <div className="preference-segmented" role="group" aria-label="描画パフォーマンス">
+        {(["auto", "high", "low"] as const).map((quality) => <button className={ambientQuality === quality ? "active" : ""} key={quality} aria-pressed={ambientQuality === quality} onClick={() => onAmbientQualityChange(quality)}>{quality === "auto" ? "自動" : quality === "high" ? "標準" : "軽量"}</button>)}
       </div>
     </div>
   </div>;
@@ -587,6 +587,7 @@ export default function PlayerApp() {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [skipSeconds, setSkipSeconds] = useState<10 | 15 | 30>(10);
   const [ambientQuality, setAmbientQuality] = useState<AmbientQuality>("auto");
+  const [automaticAmbientQuality, setAutomaticAmbientQuality] = useState<Exclude<AmbientQuality, "auto">>("high");
   const [keepScreenAwake, setKeepScreenAwake] = useState(false);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [sleepTimer, setSleepTimer] = useState<SleepTimer>({ mode: "off" });
@@ -652,6 +653,10 @@ export default function PlayerApp() {
       setKeepScreenAwake(localStorage.getItem("dmplayer-keep-awake") === "true");
       setHapticsEnabled(localStorage.getItem("dmplayer-haptics") !== "false");
     });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setAutomaticAmbientQuality(resolveAutomaticQuality()));
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
@@ -808,7 +813,7 @@ export default function PlayerApp() {
   const changeAmbientQuality = (quality: AmbientQuality) => {
     setAmbientQuality(quality);
     localStorage.setItem("dmplayer-ambient-quality", quality);
-    setNotice(quality === "auto" ? "背景エフェクトを端末に合わせます" : quality === "high" ? "背景エフェクトを高品質にしました" : "背景エフェクトを省電力にしました");
+    setNotice(quality === "auto" ? "描画パフォーマンスを端末に合わせます" : quality === "high" ? "描画パフォーマンスを標準にしました" : "描画パフォーマンスを軽量にしました");
   };
   const changeKeepScreenAwake = (enabled: boolean) => {
     const supportsWakeLock = Boolean((navigator as Navigator & { wakeLock?: unknown }).wakeLock);
@@ -1093,18 +1098,19 @@ export default function PlayerApp() {
       </div>
     </div>}</>}
   </>;
+  const resolvedAmbientQuality = ambientQuality === "auto" ? automaticAmbientQuality : ambientQuality;
   const settingsContent = <div className="settings-page">
     <div className="page-heading"><small>PERSONALIZE</small><h1>設定</h1></div>
-    <section className="settings-section app-update-section"><SettingsHeading icon="refresh" title="アプリの更新" caption="インストール済みアプリも最新版へ" /><div className="setting-card rows app-update-card"><div><span>現在のバージョン</span><strong>Version 0.5.3</strong></div><button disabled={appUpdateState === "checking" || appUpdateState === "unsupported"} onClick={() => appUpdateState === "ready" ? applyAppUpdate() : void checkForAppUpdate(true)}><span className="settings-action"><UiIcon name="refresh" />アップデートを確認</span><strong>{appUpdateState === "ready" ? store.playing ? "停止して更新" : "今すぐ更新" : appUpdateState === "checking" ? "確認中…" : appUpdateState === "current" ? "最新版" : appUpdateState === "unsupported" ? "利用不可" : "確認する"}</strong></button><div className="setting-note">起動時・アプリ復帰時・オンライン復帰時にも自動で確認します。</div></div></section>
+    <section className="settings-section app-update-section"><SettingsHeading icon="refresh" title="アプリの更新" caption="インストール済みアプリも最新版へ" /><div className="setting-card rows app-update-card"><div><span>現在のバージョン</span><strong>Version 0.5.4</strong></div><button disabled={appUpdateState === "checking" || appUpdateState === "unsupported"} onClick={() => appUpdateState === "ready" ? applyAppUpdate() : void checkForAppUpdate(true)}><span className="settings-action"><UiIcon name="refresh" />アップデートを確認</span><strong>{appUpdateState === "ready" ? store.playing ? "停止して更新" : "今すぐ更新" : appUpdateState === "checking" ? "確認中…" : appUpdateState === "current" ? "最新版" : appUpdateState === "unsupported" ? "利用不可" : "確認する"}</strong></button><div className="setting-note">起動時・アプリ復帰時・オンライン復帰時にも自動で確認します。</div></div></section>
     <section className="settings-section"><SettingsHeading icon="timer" title="再生" caption="速度とスリープタイマー" /><PlaybackTools playbackRate={playbackRate} onPlaybackRateChange={changePlaybackRate} sleepTimer={sleepTimer} sleepRemaining={sleepRemaining} onSleepMinutes={scheduleSleep} onSleepAfterTrack={stopAfterCurrentTrack} onCancelSleep={cancelSleep} /></section>
     <section className="settings-section"><SettingsHeading icon="controls" title="操作と端末" caption="シーク、画面ロック、触覚" /><DevicePreferences skipSeconds={skipSeconds} keepScreenAwake={keepScreenAwake} hapticsEnabled={hapticsEnabled} onSkipSecondsChange={changeSkipSeconds} onKeepScreenAwakeChange={changeKeepScreenAwake} onHapticsChange={changeHaptics} /></section>
     <section className="settings-section"><SettingsHeading icon="sound" title="サウンド" caption="5バンドEQとプリセット" /><Equalizer /></section>
-    <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="テーマと再生画面の描画品質" /><AppearancePreferences theme={store.theme} ambientQuality={ambientQuality} onThemeChange={store.setTheme} onAmbientQualityChange={changeAmbientQuality} /></section>
+    <section className="settings-section"><SettingsHeading icon="palette" title="外観" caption="テーマと端末別の描画設定" /><AppearancePreferences theme={store.theme} ambientQuality={ambientQuality} onThemeChange={store.setTheme} onAmbientQualityChange={changeAmbientQuality} /></section>
     <section className="settings-section"><SettingsHeading icon="storage" title="ストレージ" caption="すべての音源は端末内だけに保存" /><div className="setting-card rows settings-rows"><div><span>保存した曲</span><strong>{store.tracks.length}曲</strong></div><div><span>使用容量</span><strong>{(store.tracks.reduce((sum, track) => sum + track.fileSize, 0) / 1024 / 1024).toFixed(1)} MB</strong></div><button onClick={() => void requestPersistentStorage()}><span className="settings-action"><UiIcon name="shield" />ストレージを保護</span><strong>{storagePersistent === true ? "保護済み" : storagePersistent === false ? "未保護" : "確認中"}</strong></button><button className="danger" onClick={() => { if (confirm("保存したすべての曲とプレイリストを削除しますか？この操作は取り消せません。")) void store.clear(); }}><span className="settings-action"><UiIcon name="trash" />ライブラリをすべて削除</span></button></div></section>
-    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.5.3</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
+    <section className="settings-section"><SettingsHeading icon="app" title="このアプリについて" caption="ローカルファーストPWA" /><div className="setting-card rows"><div><span>DMPlayer2</span><strong>Version 0.5.4</strong></div><div className="setting-note">端末内保存 · オフライン対応</div></div></section>
   </div>;
 
-  return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${nowOpen ? "now-open" : ""}`} onDragEnter={handleDragEnter} onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDragLeave={handleDragLeave} onDrop={handleDrop}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} playbackRate={playbackRate} stopAfterTrack={sleepTimer.mode === "track"} onStopAfterTrack={completeTrackSleep} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" disabled={Boolean(store.importProgress)} onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} />}
+  return <main className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${nowOpen ? "now-open" : ""} performance-${resolvedAmbientQuality}`} onDragEnter={handleDragEnter} onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDragLeave={handleDragLeave} onDrop={handleDrop}><input ref={fileRef} hidden type="file" accept={AUDIO_FILE_ACCEPT} multiple onChange={(event) => void addFiles(event.target.files)} /><PlayerEngine audioRef={audioRef} playbackRate={playbackRate} stopAfterTrack={sleepTimer.mode === "track"} onStopAfterTrack={completeTrackSleep} /><SidebarLibrary onOpenRecent={openRecentDetail} onOpenPlaylist={openPlaylistDetail} /><aside className="sidebar"><button className="sidebar-toggle" aria-label={sidebarCollapsed ? "サイドバーを開く" : "サイドバーを収納"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => { const next = !collapsed; localStorage.setItem("dmplayer-sidebar-collapsed", String(next)); return next; })}><UiIcon name="back" /></button><div className="sidebar-brand"><BrandMark /><strong>DMPlayer2</strong></div>{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-label={label}><NavIcon name={id} /><span className="sidebar-label">{label}</span></button>)}<button className="sidebar-add" disabled={Boolean(store.importProgress)} onClick={openPicker} aria-label="音楽を追加"><UiIcon name="add" /><span className="sidebar-label">音楽を追加</span></button></aside><section ref={contentRef} className="content"><div key={`${tab}-${view}-${selectedAlbum ?? selectedArtist ?? selectedPlaylistId ?? ""}`} className={`content-inner view-transition view-${motion}`}>{tab === "library" ? libraryContent() : tab === "playlists" ? playlistsContent : tab === "search" ? searchContent : settingsContent}</div></section><TabletPlayer audioRef={audioRef} onOpen={openNowPlaying} /><div className="mobile-dock"><MiniPlayer variant="mobile" onOpen={openNowPlaying} audioRef={audioRef} /><nav className="tab-bar" aria-label="メインナビゲーション">{([["library", "ライブラリ"], ["playlists", "プレイリスト"], ["search", "検索"], ["settings", "設定"]] as const).map(([id, label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => navigateTab(id)} aria-current={tab === id ? "page" : undefined}><NavIcon name={id} /><small>{label}</small></button>)}</nav></div>{nowOpen && <NowPlaying closing={nowClosing} onClose={closeNowPlaying} onOpenArtist={(artist) => { openArtistDetail(artist); closeNowPlaying(); }} audioRef={audioRef} ambientQuality={resolvedAmbientQuality} />}
     {menuTrack && <div className="sheet-backdrop" onClick={() => setMenuTrack(undefined)}><section className="action-sheet" role="dialog" aria-modal="true" aria-label={`${menuTrack.title}の操作メニュー`} onClick={(event) => event.stopPropagation()}>
       <div className="sheet-handle" />
       <div className="sheet-track"><Artwork track={menuTrack} size="small" /><div><strong>{menuTrack.title}</strong><small>{menuTrack.artist} · {trackBitrate(menuTrack) ? `${Math.round(trackBitrate(menuTrack)! / 1000)} kbps` : menuTrack.codec || "Audio"}</small></div></div>

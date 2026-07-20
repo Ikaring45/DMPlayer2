@@ -461,24 +461,20 @@ function paletteStyle(palette: AlbumAmbientPalette, visible: boolean, duration: 
   } as AmbientCssProperties;
 }
 
-function resolveAutomaticQuality(): ResolvedAmbientQuality {
+export function resolveAutomaticQuality(): ResolvedAmbientQuality {
   const navigatorWithHints = navigator as Navigator & {
     deviceMemory?: number;
-    userAgentData?: { mobile?: boolean };
     connection?: { saveData?: boolean };
   };
-  const mobileDevice = navigatorWithHints.userAgentData?.mobile === true
-    || /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)
-    || window.matchMedia?.("(pointer: coarse)").matches === true;
   const constrainedMemory = (
     typeof navigatorWithHints.deviceMemory === "number"
-    && navigatorWithHints.deviceMemory <= (mobileDevice ? 8 : 4)
+    && navigatorWithHints.deviceMemory <= 4
   );
   const constrainedCpu = (
     typeof navigator.hardwareConcurrency === "number"
-    && navigator.hardwareConcurrency <= (mobileDevice ? 8 : 4)
+    && navigator.hardwareConcurrency <= 4
   );
-  return navigatorWithHints.connection?.saveData || mobileDevice || constrainedMemory || constrainedCpu ? "low" : "high";
+  return navigatorWithHints.connection?.saveData || constrainedMemory || constrainedCpu ? "low" : "high";
 }
 
 export function AnimatedAlbumBackground({

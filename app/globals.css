@@ -2324,32 +2324,32 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .now-playing .now-stage-lyrics .lyrics-line.near{color:color-mix(in srgb,var(--player-text) 58%,transparent)}
 .now-playing .now-stage-lyrics .lyrics-line.current{color:var(--player-text);text-shadow:0 8px 32px color-mix(in srgb,var(--player-text) 10%,transparent)}
 
-/* Phones favor stable layers over expensive off-screen compositing. */
+/* Lightweight mode favors stable layers over expensive off-screen compositing on phones. */
 @media (max-width:759px) and (pointer:coarse){
-  .app-shell::before,.app-shell::after{display:none}
-  .feature-backdrop{inset:-16%;opacity:.56;filter:blur(24px) saturate(1.2);transform:scale(1.08)}
-  .library-links,
-  .library-hero,
-  .search-box,
-  .setting-card,
-  .equalizer-card,
-  .action-sheet,
-  .toast,
-  .collection-hero,
-  .lyrics-follow{
+  .app-shell.performance-low::before,.app-shell.performance-low::after{display:none}
+  .app-shell.performance-low .feature-backdrop{inset:-16%;opacity:.56;filter:blur(24px) saturate(1.2);transform:scale(1.08)}
+  .app-shell.performance-low .library-links,
+  .app-shell.performance-low .library-hero,
+  .app-shell.performance-low .search-box,
+  .app-shell.performance-low .setting-card,
+  .app-shell.performance-low .equalizer-card,
+  .app-shell.performance-low .action-sheet,
+  .app-shell.performance-low .toast,
+  .app-shell.performance-low .collection-hero,
+  .app-shell.performance-low .lyrics-follow{
     -webkit-backdrop-filter:none;
     backdrop-filter:none;
   }
-  .app-shell.now-open>.content,
-  .app-shell.now-open>.sidebar,
-  .app-shell.now-open>.sidebar-library,
-  .app-shell.now-open>.mobile-dock,
-  .app-shell.now-open>.ipad-player{visibility:hidden}
-  .now-playing .now-stage-view:not(.is-active){visibility:hidden;content-visibility:hidden;transition:none}
-  .now-playing .now-mode-dock,
-  .now-playing .now-stage-queue .queue-panel,
-  .now-playing .now-stage-queue .queue-heading,
-  .now-playing .now-stage-queue .queue-actions{
+  .app-shell.performance-low.now-open>.content,
+  .app-shell.performance-low.now-open>.sidebar,
+  .app-shell.performance-low.now-open>.sidebar-library,
+  .app-shell.performance-low.now-open>.mobile-dock,
+  .app-shell.performance-low.now-open>.ipad-player{visibility:hidden}
+  .app-shell.performance-low .now-playing .now-stage-view:not(.is-active){visibility:hidden;content-visibility:hidden;transition:none}
+  .app-shell.performance-low .now-playing .now-mode-dock,
+  .app-shell.performance-low .now-playing .now-stage-queue .queue-panel,
+  .app-shell.performance-low .now-playing .now-stage-queue .queue-heading,
+  .app-shell.performance-low .now-playing .now-stage-queue .queue-actions{
     -webkit-backdrop-filter:none;
     backdrop-filter:none;
   }
