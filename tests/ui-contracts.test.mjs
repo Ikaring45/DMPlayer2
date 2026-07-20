@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.5.1");
+  assert.equal(packageJson.version, "0.5.2");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -188,10 +188,10 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
   assert.match(player, /インストール済みアプリも最新版へ/);
   assert.match(player, /アップデートを確認/);
-  assert.match(player, /Version 0\.5\.1/);
+  assert.match(player, /Version 0\.5\.2/);
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v12"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v13"/);
   assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
   assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
   assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
@@ -246,10 +246,12 @@ test("empty states and compact player controls stay actionable and visually cons
   assert.match(css, /\.ipad-up-next-empty\{/);
 });
 
-test("full player uses a light ambient surface without changing the dark theme", async () => {
+test("full player uses a balanced ambient surface without changing the dark theme", async () => {
   const css = await source("../app/globals.css");
 
-  assert.match(css, /:root\{[\s\S]*?--player-bg:#eef1f8/);
+  assert.match(css, /:root\{[\s\S]*?--player-bg:#616b7e/);
+  assert.match(css, /:root\{[\s\S]*?--player-text:#fafbff/);
+  assert.match(css, /:root\{[\s\S]*?--player-palette-filter:brightness\(1\.16\) saturate\(\.88\)/);
   assert.match(css, /:root\[data-theme="dark"\]\{[\s\S]*?--player-bg:#080a0f/);
   assert.match(css, /@media \(prefers-color-scheme:dark\)\{[\s\S]*?:root:not\(\[data-theme="light"\]\)/);
   assert.match(css, /\.now-playing\{[\s\S]*?background:var\(--player-bg\)/);
