@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.4.2");
+  assert.equal(packageJson.version, "0.4.3");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -185,10 +185,13 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.doesNotMatch(player, /setInterval\(\(\) => void checkInBackground\(\)/);
   assert.match(player, /waitingWorker\.postMessage\(\{ type: "SKIP_WAITING" \}\)/);
   assert.match(player, /新しいバージョンがあります/);
-  assert.match(player, /Version 0\.4\.2/);
-  assert.match(player, /インストール済みでも、起動時・復帰時・オンライン復帰時/);
+  assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
+  assert.match(player, /インストール済みアプリも最新版へ/);
+  assert.match(player, /アップデートを確認/);
+  assert.match(player, /Version 0\.4\.3/);
+  assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v9"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v10"/);
   assert.doesNotMatch(serviceWorker, /cache\.addAll\(SHELL\)\)\.then\(\(\) => self\.skipWaiting\(\)\)/);
   assert.match(serviceWorker, /event\.data\?\.type === "SKIP_WAITING"[\s\S]*?self\.skipWaiting\(\)/);
 });
