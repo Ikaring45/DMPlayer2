@@ -24,7 +24,7 @@ test("desktop sidebar collapses to an accessible persistent navigation rail", as
   assert.match(player, /const \[sidebarCollapsed,\s*setSidebarCollapsed\]\s*=\s*useState\(false\)/);
   assert.match(player, /localStorage\.getItem\("dmplayer-sidebar-collapsed"\)/);
   assert.match(player, /localStorage\.setItem\("dmplayer-sidebar-collapsed"/);
-  assert.match(player, /className=\{`app-shell \$\{sidebarCollapsed \? "sidebar-collapsed" : ""\}`\}/);
+  assert.match(player, /className=\{`app-shell \$\{sidebarCollapsed \? "sidebar-collapsed" : ""\} \$\{nowOpen \? "now-open" : ""\}`\}/);
   assert.match(player, /className="sidebar-toggle"/);
   assert.match(player, /aria-label=\{sidebarCollapsed \? "サイドバーを開く" : "サイドバーを収納"\}/);
   assert.match(player, /aria-expanded=\{!sidebarCollapsed\}/);
@@ -176,7 +176,7 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   ]);
   const packageJson = JSON.parse(packageText);
 
-  assert.equal(packageJson.version, "0.5.2");
+  assert.equal(packageJson.version, "0.5.3");
   assert.match(player, /type AppUpdateState = "idle" \| "checking" \| "current" \| "ready" \| "unsupported"/);
   assert.match(player, /register\("\.\/sw\.js", \{ updateViaCache: "none" \}\)/);
   assert.match(player, /registration\.update\(\)/);
@@ -188,10 +188,10 @@ test("installed PWA checks for updates and lets the listener apply them safely",
   assert.match(player, /settingsContent[\s\S]*?title="アプリの更新"[\s\S]*?title="再生"/);
   assert.match(player, /インストール済みアプリも最新版へ/);
   assert.match(player, /アップデートを確認/);
-  assert.match(player, /Version 0\.5\.2/);
+  assert.match(player, /Version 0\.5\.3/);
   assert.match(player, /起動時・アプリ復帰時・オンライン復帰時にも自動で確認/);
   assert.match(css, /\.update-toast\{/);
-  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v13"/);
+  assert.match(serviceWorker, /const CACHE = "dmplayer2-shell-v14"/);
   assert.match(serviceWorker, /LEGACY_CACHE_WITHOUT_UPDATE_UI = "dmplayer2-shell-v7"/);
   assert.match(serviceWorker, /caches\.has\(LEGACY_CACHE_WITHOUT_UPDATE_UI\)/);
   assert.match(serviceWorker, /legacyAppInstalled \? self\.skipWaiting\(\) : undefined/);
@@ -310,6 +310,25 @@ test("album ambient background remains artwork-derived, cached, layered, and mot
   assert.match(css, /\.ambient-blob-3\{[^}]*var\(--ambient-blob-3-duration\)/);
   assert.match(css, /\.animated-album-background\[data-quality="low"\][\s\S]*?\.ambient-blob-5\{display:none\}/);
   assert.match(css, /\.animated-album-background\[data-reduced-motion="true"\]\s+\.ambient-blob\{animation:none!important\}/);
+});
+
+test("midrange touch devices automatically use stable low-cost visual layers", async () => {
+  const [component, player, css] = await Promise.all([
+    source("../app/components/AnimatedAlbumBackground.tsx"),
+    source("../app/PlayerApp.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(component, /const mobileDevice = navigatorWithHints\.userAgentData\?\.mobile === true/);
+  assert.match(component, /deviceMemory <= \(mobileDevice \? 8 : 4\)/);
+  assert.match(component, /hardwareConcurrency <= \(mobileDevice \? 8 : 4\)/);
+  assert.match(component, /saveData \|\| mobileDevice \|\| constrainedMemory \|\| constrainedCpu \? "low" : "high"/);
+  assert.match(player, /\$\{nowOpen \? "now-open" : ""\}/);
+  assert.match(css, /\.animated-album-background\[data-quality="low"\] \.ambient-blob\{filter:none;opacity:\.3;animation:none!important;will-change:auto\}/);
+  assert.match(css, /\.animated-album-background\[data-quality="low"\] \.ambient-blob-3,[\s\S]*?\.ambient-blob-5\{display:none\}/);
+  assert.match(css, /@media \(max-width:759px\) and \(pointer:coarse\)\{[\s\S]*?\.app-shell::before,\.app-shell::after\{display:none\}/);
+  assert.match(css, /\.app-shell\.now-open>\.content,[\s\S]*?\.app-shell\.now-open>\.ipad-player\{visibility:hidden\}/);
+  assert.match(css, /\.now-playing \.now-stage-view:not\(\.is-active\)\{visibility:hidden;content-visibility:hidden;transition:none\}/);
 });
 
 test("device and appearance settings persist and control real player behavior", async () => {

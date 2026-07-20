@@ -555,8 +555,9 @@ h1,h2,h3{font-family:var(--font-display);font-weight:780;line-height:1.16;text-w
   50%{transform:translate3d(14%,-13%,0) scale(1.14) rotate(12deg);opacity:.3}
   100%{transform:translate3d(-4%,17%,0) scale(1.02) rotate(21deg);opacity:.23}
 }
-.animated-album-background[data-quality="low"] .ambient-blob{filter:blur(10px);opacity:.34}
+.animated-album-background[data-quality="low"] .ambient-blob{filter:none;opacity:.3;animation:none!important;will-change:auto}
 .animated-album-background[data-quality="low"] .ambient-palette-layer{transform:none;transition:none;will-change:auto}
+.animated-album-background[data-quality="low"] .ambient-blob-3,
 .animated-album-background[data-quality="low"] .ambient-blob-4,
 .animated-album-background[data-quality="low"] .ambient-blob-5{display:none}
 .animated-album-background[data-quality="low"] .ambient-noise-overlay{display:none}
@@ -2322,3 +2323,34 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .now-playing .now-stage-lyrics .lyrics-line{color:color-mix(in srgb,var(--player-text) 31%,transparent)}
 .now-playing .now-stage-lyrics .lyrics-line.near{color:color-mix(in srgb,var(--player-text) 58%,transparent)}
 .now-playing .now-stage-lyrics .lyrics-line.current{color:var(--player-text);text-shadow:0 8px 32px color-mix(in srgb,var(--player-text) 10%,transparent)}
+
+/* Phones favor stable layers over expensive off-screen compositing. */
+@media (max-width:759px) and (pointer:coarse){
+  .app-shell::before,.app-shell::after{display:none}
+  .feature-backdrop{inset:-16%;opacity:.56;filter:blur(24px) saturate(1.2);transform:scale(1.08)}
+  .library-links,
+  .library-hero,
+  .search-box,
+  .setting-card,
+  .equalizer-card,
+  .action-sheet,
+  .toast,
+  .collection-hero,
+  .lyrics-follow{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+  .app-shell.now-open>.content,
+  .app-shell.now-open>.sidebar,
+  .app-shell.now-open>.sidebar-library,
+  .app-shell.now-open>.mobile-dock,
+  .app-shell.now-open>.ipad-player{visibility:hidden}
+  .now-playing .now-stage-view:not(.is-active){visibility:hidden;content-visibility:hidden;transition:none}
+  .now-playing .now-mode-dock,
+  .now-playing .now-stage-queue .queue-panel,
+  .now-playing .now-stage-queue .queue-heading,
+  .now-playing .now-stage-queue .queue-actions{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+}
